@@ -24,25 +24,30 @@ Pages.
 ## How data flows
 
 ```
-hive spoke ──GET /api/benchmarks/export──▶ hub (opt-in aggregation, redaction)
-                                              │
-                                              ▼  PR with data/<org>/<yyyy-mm>/*.json
-                                      hivecommons/benchmarks ──build-index.sh──▶ data/index.json
-                                                                                   │
-                                                                   GitHub Pages ◀──┘  site/
+hive spoke ──hourly POST /api/benchmarks/ingest──▶ hub (/data/benchmarks/<hash>/<yyyy-mm>.json)
+                                                      │
+                                                      ▼  hourly Contents-API commit (hub App identity)
+                                      hivecommons/benchmarks data/fleet/<hash>/<yyyy-mm>.json
+                                                      │  build-index on push
+                                                      ▼
+                                      GitHub Pages ◀── data/index.json + site/
 ```
 
 1. Every hive publishes **anonymized** records by default: model, harness, sandbox runtime,
-   outcome, cost, time-to-merge and ACMM level, keyed by a stable hash of the hive id. Owners can
+   outcome, time-to-merge and ACMM level, keyed by a salted hash of the hive id. Owners can
    opt out with `benchmarks.publish: false` in `hive.yaml`.
 2. Repository and org names are included only for **public** repositories (activity on a public
-   repo is already public). Private repos stay anonymous. No logins, prompts, finding text or code
-   ever leave the spoke.
-3. The hub pulls `GET /api/benchmarks/export?since=` from every registered spoke **hourly**, batches
-   the records and pushes them to `data/fleet/<hive_hash>/<yyyy-mm>.json` here. Pages rebuilds on
-   push, so the site lags the fleet by at most about an hour. Until that publisher ships
-   (hivecommons/hive#17694), `scripts/backfill-from-cluster.sh` does the same from `kubectl`, and a
-   nightly workflow rebuilds the index.
+   repo is already public). Private repos stay anonymous, and `benchmarks.repo_consent: false`
+   anonymizes even public ones. No logins, prompts, finding text or code ever leave the spoke.
+3. **Cadence is hub-driven and hourly.** Each spoke converts the evidence bundles it already
+   seals and pushes new records (since its last watermark) to the hub's
+   `POST /api/benchmarks/ingest` with its per-hive heartbeat bearer; the hub recomputes the hash
+   server-side, merges by record id, and once an hour commits changed month files to
+   `data/fleet/<hive_hash>/<yyyy-mm>.json` here. Pages rebuilds on push, so the site lags the
+   fleet by at most about two hours. Owners can also read their own records from
+   `GET /api/benchmarks/export?since=`. Implementation: hivecommons/hive#17716 (RFC #17694).
+   Until that ships to every hive, `scripts/backfill-from-cluster.sh` does the same from
+   `kubectl`, and a nightly workflow rebuilds the index.
 
 Each hive's hash is shown to its owner in the dashboard (Settings → Benchmarks) and listed in the
 "Contributing hives" table on the site. What hive already collects is written up in
