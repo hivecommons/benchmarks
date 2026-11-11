@@ -4,7 +4,7 @@ Published benchmark results for the coding agents, models and sandbox runtimes u
 [Hive Commons](https://github.com/hivecommons/hive) and [Project Bluefin](https://projectbluefin.io)
 hives.
 
-**Site:** https://hivecommons.github.io/benchmarks/ · **Data:** [`data/`](data/) (CC-BY-4.0) ·
+**Site:** https://hivecommons.dev/benchmarks/ · **Data:** [`data/`](data/) (CC-BY-4.0) ·
 **Schema:** [`schema/result.schema.json`](schema/result.schema.json)
 
 ## Why

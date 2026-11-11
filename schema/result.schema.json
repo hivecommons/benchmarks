@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://hivecommons.github.io/benchmarks/schema/result.schema.json",
+  "$id": "https://hivecommons.dev/benchmarks/schema/result.schema.json",
   "title": "Hive Commons benchmark result",
   "description": "One benchmark record: a single unit of agent work (usually one pull request) with its outcome, cost and quality signals. Field names follow the hive evidence bundle (pkg/evidence.Bundle) and GET /api/cost so a spoke can emit records directly.",
   "type": "object",
