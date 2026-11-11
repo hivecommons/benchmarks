@@ -27,6 +27,7 @@
   .bar { display:inline-block; height:.6rem; background:var(--accent); vertical-align:middle; margin-right:.4rem; border-radius:2px }
   .ci { color:var(--muted); font-size:.8rem }
   .nr { color:var(--muted); font-style:italic }
+  abbr.est { color:var(--muted); font-size:.75rem; text-decoration:underline dotted; cursor:help; font-weight:normal }
   details { background:var(--card); border:1px solid var(--line); border-radius:6px; padding:.6rem .9rem } summary { cursor:pointer; font-weight:600 }
   footer { color:var(--muted); font-size:.85rem }
   a { color:var(--accent) }
@@ -66,11 +67,19 @@
       <summary>How these numbers are computed</summary>
       <ul>
         <li><b>Unit.</b> One record = one unit of agent work on one pull request, exported from a hive's signed per-PR evidence bundle: <i>agent-authored</i> (the agent opened the PR) or <i>agent review</i> (the swarm reviewed someone's PR; the model shown is the majority reviewer model). Schema: <a href="schema/result.schema.json"><code>schema/result.schema.json</code></a>.</li>
-        <li><b>Backfill.</b> Records with <code>exporter: backfill-from-cluster</code> were converted from existing evidence by <code>scripts/convert-evidence.py</code>; they carry no per-PR cost (hive meters cost per agent/model, not per PR) and <code>sandbox_runtime: none</code> because those hives ran agents in-process. <code>task.kind</code> is <code>unknown</code> unless the agent name says otherwise.</li>
+        <li><b>Backfill.</b> Records with <code>exporter: backfill-from-cluster</code> were converted from existing evidence by <code>scripts/convert-evidence.py</code>; <code>sandbox_runtime: none</code> because those hives ran agents in-process. <code>task.kind</code> is <code>unknown</code> unless the agent name says otherwise.</li>
         <li><b>Median time to merge</b> is read from a 12-bucket log-scale histogram, so it is a bucket midpoint, not an exact value.</li>
-        <li><b>Merge rate</b> = merged ÷ records with <code>pr_opened</code>. <b>CI green first try</b> = <code>ci_green_first_try</code> true ÷ records where CI was captured (nulls excluded). <b>Cost / merged PR</b> = Σ <code>cost.usd</code> over the group ÷ merged PRs in the group; records without cost are excluded from the numerator <em>and</em> the denominator.</li>
+        <li><b>Merge rate</b> = merged ÷ records with <code>pr_opened</code>. <b>CI green first try</b> = <code>ci_green_first_try</code> true ÷ records where CI was captured (nulls excluded). <b>Cost / merged PR</b> = Σ <code>cost.usd_est</code> over merged PRs in the group ÷ merged PRs with a cost estimate; <code>cost.basis = unknown</code> records are excluded from the numerator <em>and</em> the denominator. The small "attr." percentage says how many of the group's records have a PR-attributed cost rather than a fleet-median imputation.</li>
         <li><b>Intervals.</b> Every rate shows n and a 95% Wilson score interval. Groups with n &lt; 10 are shown as <span class="nr">not reported</span>, the same rule <code>hivecommons/hive</code> uses for its monthly outcome benchmark.</li>
-        <li><b>Cost basis.</b> USD is estimated from public price tables by the hive token collector (<code>GET /api/cost</code>), or apportioned from per-agent totals. It is not a bill. Records say which (<code>cost.basis</code>).</li>
+        <li id="cost-methodology"><b>Cost basis — every dollar figure is an estimate, not a bill.</b> Each record carries <code>cost.usd_est</code> and <code>cost.basis</code>:
+          <ul>
+            <li><code>reported</code> — the harness or gateway returned a billed figure (OpenRouter/LiteLLM). None yet.</li>
+            <li><code>tokens_x_pricing</code> — hive's token collector counts input/output/cache tokens per agent kick and prices them with the same list-price table its dashboard Cost panel uses (<a href="schema/pricing.json"><code>schema/pricing.json</code></a>, mirrored from <code>hive/src/pkg/tokens/pricing.go</code>). Spend is attributed to a PR through hive's launch attribution (<code>/api/launch-cost</code>): the kick that named the issue(s) the PR closed, or the PR itself for review-swarm kicks; a kick naming several refs is split evenly. Subscription plans (Claude Max, Copilot premium requests) and self-hosted inference do not bill at list price, so this is an order-of-magnitude proxy.</li>
+            <li><code>fleet_model_median</code> — the PR has no attributed kick (older than the attribution store, kicked without a ref, or usage outside the 6-hour ownership horizon). It gets the median <code>tokens_x_pricing</code> cost of attributed PRs for the same model and role across the whole fleet (≥5 samples), else the fleet's median token mix for the role priced at that model's list price. Imputed at index-build time; the raw record stays <code>unknown</code>.</li>
+            <li><code>unknown</code> — nothing available; excluded from all cost aggregates. Tiles say "n=… with cost data".</li>
+          </ul>
+          <span class="ci">Why not duration × $/h? <code>wall_clock_s</code> is PR open→merge time, not agent runtime, so it would mostly measure review latency.</span>
+          <div id="cost-basis"></div></li>
         <li><b>Synthetic records</b> (<code>synthetic: true</code>) are excluded unless you tick the box. They exist so the page renders before real exports land.</li>
         <li><b>Privacy.</b> Every hive publishes anonymized records by default (opt-out: <code>benchmarks.publish: false</code>). Repository and org names appear only for public repositories (<code>repo_consent</code>); private repos stay anonymous. No logins, prompts, finding text or code are published. See <a href="https://github.com/hivecommons/benchmarks/blob/main/GOVERNANCE.md">GOVERNANCE.md</a>.</li>
         <li><b>Confounders.</b> Models are not assigned to tasks at random: harder tasks go to bigger models, review agents never open PRs, and hives differ in ACMM policy. Filter by task kind and ACMM level before comparing; treat cross-model differences as observational.</li>

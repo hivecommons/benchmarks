@@ -6,6 +6,8 @@
 #   scripts/backfill-from-cluster.sh [--contexts "hive-oke lke648397-ctx"] [--since YYYY-MM-DD] [--work DIR]
 #
 # Needs kubectl (exec access to the spoke pods), python3, gh (repo visibility).
+# Also pulls /data/launch-cost.json so records get cost.basis=tokens_x_pricing
+# where hive attributed kick spend to the PR/issue (see scripts/costlib.py).
 # Repo names are kept only for repositories GitHub reports as public; the
 # hive id is hashed (see convert-evidence.py). Re-running is idempotent: files
 # for a hive/month are overwritten, record ids are stable.
@@ -31,6 +33,8 @@ pull() { # ctx ns
   [ -z "$pod" ] && return 0
   mkdir -p "$dir/tree"
   kubectl --context "$ctx" -n "$ns" exec "$pod" -c hive -- sh -c 'cd /data && tar czf - evidence 2>/dev/null' 2>/dev/null | tar xzf - -C "$dir/tree" 2>/dev/null || true
+  # launch attribution store: per-kick token spend keyed by issue/PR ref (cost tier tokens_x_pricing)
+  kubectl --context "$ctx" -n "$ns" exec "$pod" -c hive -- sh -c 'cd /data && tar czf - launch-cost.json 2>/dev/null' 2>/dev/null | tar xzf - -C "$dir" 2>/dev/null || true
   kubectl --context "$ctx" -n "$ns" exec "$pod" -c hive -- sh -c 'grep -E "^hive_id:|^agent_sandbox:" -A3 /etc/hive/hive.yaml; (hive --version || /hive --version) 2>/dev/null' > "$dir/meta.txt" 2>/dev/null || true
   kubectl --context "$ctx" -n "$ns" get deploy hive -o jsonpath='{.spec.template.spec.containers[?(@.name=="hive")].image}' > "$dir/image.txt" 2>/dev/null || true
   echo "$ctx" > "$dir/ctx.txt"
@@ -66,8 +70,10 @@ for dir in "$WORK"/hive-hosted-*/; do
   ver=$(awk '/^hive /{print $2}' "$dir/meta.txt" 2>/dev/null | head -1); [ -z "$ver" ] && ver=$(sed 's/.*://' "$dir/image.txt" 2>/dev/null)
   runtime=$(awk '/^agent_sandbox:/,0' "$dir/meta.txt" | awk '/runtime:/{print $2}' | head -1); [ -z "$runtime" ] && runtime=none
   case "$(cat "$dir/ctx.txt")" in *lke*) cluster=lke;; *oke*) cluster=oke;; *) cluster=$(cat "$dir/ctx.txt");; esac
+  LC=""; [ -f "$dir/launch-cost.json" ] && LC="$dir/launch-cost.json"
   hash=$(python3 -c "import hashlib,sys;print(hashlib.sha256(('hivecommons-benchmarks/v1/'+sys.argv[1]).encode()).hexdigest()[:16])" "$hid")
   python3 scripts/convert-evidence.py --evidence "$dir/tree/evidence" --hive-id "$hid" --hive-version "$ver" --cluster "$cluster" \
-    --sandbox-runtime "$runtime" --public-repos "$WORK/public-repos.txt" --out "data/fleet/$hash" ${SINCE:+--since "$SINCE"}
+    --sandbox-runtime "$runtime" --public-repos "$WORK/public-repos.txt" --out "data/fleet/$hash" ${SINCE:+--since "$SINCE"} \
+    ${LC:+--launch-cost "$LC"}
 done
 echo "done; now run scripts/build-index.sh and commit data/fleet" >&2

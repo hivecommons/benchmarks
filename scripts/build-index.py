@@ -5,8 +5,14 @@ The browser never sees raw records: index.json holds pre-aggregated cells at
 the grain (org, hive_id, month, role, kind, harness, runtime, acmm, provider,
 model, synthetic) plus per-hive totals. Wall-clock is kept as a 12-bucket
 log-scale histogram so the site can report a median without raw values.
+
+Cost: records lacking an attributed cost get a fleet_model_median estimate
+here (costlib.fill_fleet_medians) so the site can show cost per merged PR per
+model; the basis mix is kept per cell (cost_basis_n) and exposed under
+cost_medians so the methodology section can show what was imputed.
 """
 import collections
+import costlib
 import datetime as dt
 import glob
 import json
@@ -46,6 +52,7 @@ def main():
         print(f"duplicate ids: {dupes[:5]} (+{max(len(dupes)-5,0)})", file=sys.stderr)
         return 1
 
+    medians = costlib.fill_fleet_medians(recs)
     cells = {}
     hives = {}
     for r in recs:
@@ -56,7 +63,8 @@ def main():
                r.get("sandbox_runtime", ""), "" if acmm is None else str(acmm), md.get("provider", ""), md.get("name", ""), bool(r.get("synthetic")))
         c = cells.get(key)
         if c is None:
-            c = cells[key] = {"n": 0, "opened": 0, "merged": 0, "ci_n": 0, "ci_green": 0, "cost_n": 0, "cost_usd": 0.0, "cost_merged": 0,
+            c = cells[key] = {"n": 0, "opened": 0, "merged": 0, "ci_n": 0, "ci_green": 0, "cost_n": 0, "cost_usd": 0.0, "cost_merged": 0, "cost_merged_usd": 0.0,
+                              "cost_basis_n": {"reported": 0, "tokens_x_pricing": 0, "fleet_model_median": 0, "unknown": 0},
                               "revert_n": 0, "reverted": 0, "interventions": 0, "retries": 0, "wall": [0] * (len(WALL_BUCKETS_H) + 1)}
         c["n"] += 1
         if out.get("pr_opened"):
@@ -67,10 +75,14 @@ def main():
             c["ci_n"] += 1
             c["ci_green"] += 1 if out["ci_green_first_try"] else 0
         cost = r.get("cost") or {}
-        if isinstance(cost.get("usd"), (int, float)):
+        basis = cost.get("basis") if cost.get("basis") in c["cost_basis_n"] else "unknown"
+        c["cost_basis_n"][basis] += 1
+        if basis != "unknown" and isinstance(cost.get("usd_est"), (int, float)):
             c["cost_n"] += 1
-            c["cost_usd"] += cost["usd"]
-            c["cost_merged"] += 1 if out.get("pr_merged") else 0
+            c["cost_usd"] += cost["usd_est"]
+            if out.get("pr_merged"):
+                c["cost_merged"] += 1
+                c["cost_merged_usd"] += cost["usd_est"]
         if q.get("reverted_within_14d") in (True, False):
             c["revert_n"] += 1
             c["reverted"] += 1 if q["reverted_within_14d"] else 0
@@ -92,6 +104,8 @@ def main():
 
     dims = ["org", "hive_id", "month", "role", "kind", "harness", "runtime", "acmm", "provider", "model", "synthetic"]
     cell_rows = [dict(zip(dims, k), **v) for k, v in sorted(cells.items(), key=lambda kv: [str(x) for x in kv[0]])]
+    for c in cell_rows:
+        c["cost_usd"], c["cost_merged_usd"] = round(c["cost_usd"], 4), round(c["cost_merged_usd"], 4)
     for h in hives.values():
         h["orgs"] = sorted(h["orgs"])
     real = [r for r in recs if not r.get("synthetic")]
@@ -106,6 +120,11 @@ def main():
         "hive_count": sum(1 for h in hives.values() if not h["synthetic"]),
         "latest_published_at": max((r["published_at"] for r in real), default=None),
         "wall_buckets_h": WALL_BUCKETS_H,
+        "cost": {
+            "price_table_as_of": costlib.Pricing().as_of,
+            "basis_n": {b: sum(1 for r in real if (r.get("cost") or {}).get("basis") == b) for b in ("reported", "tokens_x_pricing", "fleet_model_median", "unknown")},
+            "medians": [{"model": m, "role": role, "usd": round(v["usd"], 4), "n": v["n"], "how": v["how"]} for (m, role), v in sorted(medians.items())],
+        },
         "hives": sorted(hives.values(), key=lambda h: -h["records"]),
         "cells": cell_rows,
     }

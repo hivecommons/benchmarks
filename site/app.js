@@ -12,6 +12,9 @@
   const $ = (sel) => document.querySelector(sel);
   const fmtPct = (x) => (x * 100).toFixed(0) + "%";
   const fmtUsd = (x) => "$" + x.toFixed(2);
+  const BASES = ["reported", "tokens_x_pricing", "fleet_model_median", "unknown"];
+  const COST_TIP = "Estimate, not a bill. tokens_x_pricing = hive's per-kick token counts × list prices (schema/pricing.json), attributed to the PR via kick refs; fleet_model_median = no attribution for this PR, median of attributed PRs for the same model & role (or median token mix × this model's price). See Methodology → Cost basis.";
+  const EST = `<abbr class="est" title="${COST_TIP}">est.</abbr>`;
   const fmtInt = (x) => x.toLocaleString();
 
   function wilson(k, n) {
@@ -37,8 +40,8 @@
   let WALL_BUCKETS_H = [];
 
   function emptyGroup(key) {
-    return { key, n: 0, opened: 0, merged: 0, ci_n: 0, ci_green: 0, cost_n: 0, cost_usd: 0, cost_merged: 0,
-      revert_n: 0, reverted: 0, interventions: 0, retries: 0, wall: new Array(WALL_BUCKETS_H.length + 1).fill(0) };
+    return { key, n: 0, opened: 0, merged: 0, ci_n: 0, ci_green: 0, cost_n: 0, cost_usd: 0, cost_merged: 0, cost_merged_usd: 0,
+      cost_basis_n: Object.fromEntries(BASES.map((b) => [b, 0])), revert_n: 0, reverted: 0, interventions: 0, retries: 0, wall: new Array(WALL_BUCKETS_H.length + 1).fill(0) };
   }
 
   function aggregate(cells, keyFn) {
@@ -48,7 +51,8 @@
       if (!key) continue;
       let g = groups.get(key);
       if (!g) { g = emptyGroup(key); groups.set(key, g); }
-      for (const f of ["n", "opened", "merged", "ci_n", "ci_green", "cost_n", "cost_usd", "cost_merged", "revert_n", "reverted", "interventions", "retries"]) g[f] += c[f] || 0;
+      for (const f of ["n", "opened", "merged", "ci_n", "ci_green", "cost_n", "cost_usd", "cost_merged", "cost_merged_usd", "revert_n", "reverted", "interventions", "retries"]) g[f] += c[f] || 0;
+      for (const b of BASES) g.cost_basis_n[b] += (c.cost_basis_n || {})[b] || 0;
       (c.wall || []).forEach((v, i) => { g.wall[i] += v; });
     }
     return [...groups.values()].map((g) => ({
@@ -56,7 +60,9 @@
       mergeRate: wilson(g.merged, g.opened),
       ciRate: wilson(g.ci_green, g.ci_n),
       revertRate: wilson(g.reverted, g.revert_n),
-      costPerMerged: g.cost_merged > 0 ? g.cost_usd / g.cost_merged : null,
+      costPerMerged: g.cost_merged > 0 ? g.cost_merged_usd / g.cost_merged : null,
+      costPerRecord: g.cost_n > 0 ? g.cost_usd / g.cost_n : null,
+      attributedShare: g.cost_n > 0 ? (g.cost_basis_n.reported + g.cost_basis_n.tokens_x_pricing) / g.n : 0,
       medianWallH: histMedian(g.wall),
     }));
   }
@@ -83,6 +89,14 @@
     const width = Math.round(w.rate * 60);
     return `<td class="num"><span class="bar" style="width:${width}px"></span>${fmtPct(w.rate)} <span class="ci">[${fmtPct(w.lo)}–${fmtPct(w.hi)}] n=${w.n}</span></td>`;
   }
+  // Cost per merged PR with the attribution mix: how many of the group's records
+  // carry a PR-attributed cost vs a fleet-median imputation.
+  function costCell(g) {
+    if (g.costPerMerged == null) return '<td class="num nr">—</td>';
+    const attr = g.cost_basis_n.reported + g.cost_basis_n.tokens_x_pricing;
+    const tip = `${fmtInt(g.cost_merged)} merged PRs with cost; basis: ${attr} attributed, ${g.cost_basis_n.fleet_model_median} fleet-median, ${g.cost_basis_n.unknown} unknown`;
+    return `<td class="num" title="${tip}">${fmtUsd(g.costPerMerged)} <span class="ci">${fmtPct(attr / g.n)} attr.</span></td>`;
+  }
   function numCell(x, fmt) {
     return `<td class="num">${x == null || Number.isNaN(x) ? '<span class="nr">—</span>' : fmt(x)}</td>`;
   }
@@ -92,7 +106,7 @@
     { id: "n", label: "records", num: true, sort: (a, b) => b.n - a.n, cell: (g) => `<td class="num">${fmtInt(g.n)}</td>` },
     { id: "merge", label: "merge rate", num: true, sort: (a, b) => (b.mergeRate?.rate ?? -1) - (a.mergeRate?.rate ?? -1), cell: (g) => rateCell(g.mergeRate) },
     { id: "ci", label: "CI green 1st try", num: true, sort: (a, b) => (b.ciRate?.rate ?? -1) - (a.ciRate?.rate ?? -1), cell: (g) => rateCell(g.ciRate) },
-    { id: "cost", label: "cost / merged PR", num: true, sort: (a, b) => (a.costPerMerged ?? Infinity) - (b.costPerMerged ?? Infinity), cell: (g) => numCell(g.costPerMerged, fmtUsd) },
+    { id: "cost", label: `${EST} cost / merged PR`, num: true, sort: (a, b) => (a.costPerMerged ?? Infinity) - (b.costPerMerged ?? Infinity), cell: (g) => costCell(g) },
     { id: "wall", label: "median h to merge", num: true, sort: (a, b) => (a.medianWallH || Infinity) - (b.medianWallH || Infinity), cell: (g) => numCell(g.medianWallH, (x) => x < 10 ? x.toFixed(1) : x.toFixed(0)) },
     { id: "revert", label: "reverted ≤14d", num: true, sort: (a, b) => (a.revertRate?.rate ?? 2) - (b.revertRate?.rate ?? 2), cell: (g) => rateCell(g.revertRate) },
     { id: "hi", label: "human interventions / rec", num: true, sort: (a, b) => a.interventions / a.n - b.interventions / b.n, cell: (g) => `<td class="num">${(g.interventions / g.n).toFixed(2)}</td>` },
@@ -124,8 +138,21 @@
       [fmtInt(t.n), "records in view"], [hives, "hives"], [models, "models"],
       [t.opened ? fmtPct(t.merged / t.opened) : "—", `merged (${fmtInt(t.merged)}/${fmtInt(t.opened)} PRs)`],
       [t.ci_n ? fmtPct(t.ci_green / t.ci_n) : "—", `CI green first try (n=${fmtInt(t.ci_n)})`],
-      [t.cost_n ? fmtUsd(t.cost_usd) : "—", "estimated spend (where metered)"],
+      [t.cost_n ? fmtUsd(t.cost_usd) : "—", `${EST} total cost (n=${fmtInt(t.cost_n)} with cost data)`],
+      [t.costPerMerged != null ? fmtUsd(t.costPerMerged) : "—", `${EST} cost per merged PR (${fmtInt(t.cost_merged)} merged PRs)`],
+      [t.n ? fmtPct((t.cost_basis_n.reported + t.cost_basis_n.tokens_x_pricing) / t.n) : "—", `records with PR-attributed cost; ${t.n ? fmtPct(t.cost_basis_n.fleet_model_median / t.n) : "—"} fleet-median imputed`],
     ].map(([v, l]) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`).join("");
+  }
+
+  function renderCostBasis(cost) {
+    const el = document.getElementById("cost-basis");
+    if (!el) return;
+    const n = cost.basis_n || {};
+    const meds = (cost.medians || []).filter((m) => m.role === "author").sort((a, b) => b.n - a.n);
+    el.innerHTML = `<p>Price table as of <b>${escapeHtml(cost.price_table_as_of || "?")}</b> (<a href="schema/pricing.json">schema/pricing.json</a>). Records by basis: ${BASES.map((b) => `<code>${b}</code> ${fmtInt(n[b] || 0)}`).join(" · ")}.</p>
+      <details><summary>Fleet medians used for imputation (agent-authored PRs)</summary>
+      <table><thead><tr><th>model (normalized)</th><th class="num">${EST} USD / PR</th><th class="num">n</th><th>how</th></tr></thead>
+      <tbody>${meds.map((m) => `<tr><td><code>${escapeHtml(m.model)}</code></td><td class="num">${fmtUsd(m.usd)}</td><td class="num">${fmtInt(m.n)}</td><td>${m.how === "model" ? "median of this model's attributed PRs" : "median token mix for the role × this model's list price"}</td></tr>`).join("")}</tbody></table></details>`;
   }
 
   function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
@@ -170,6 +197,7 @@
     fillSelect("f-runtime", new Set(cells.map((c) => c.runtime)));
     fillSelect("f-acmm", new Set(cells.map((c) => c.acmm)));
     renderHives(index.hives || []);
+    renderCostBasis(index.cost || {});
 
     const render = () => {
       const view = applyFilter(cells, currentFilter());

@@ -62,6 +62,25 @@ Two kinds of work: *agent-authored PRs* (default) and *agent reviews*. Filters: 
 harness, runtime, ACMM level, month. A "Contributing hives" table lists every hive hash with its
 record counts.
 
+## Methodology: estimated cost
+
+Every dollar on the site is an **estimate, never a bill**. Each record carries `cost.usd_est`
+and `cost.basis`, and the headline metric is *est. cost per merged PR per model*
+(Σ `usd_est` over merged PRs ÷ merged PRs with an estimate; `unknown` records are excluded from
+both numerator and denominator, and tiles say `n=… with cost data`).
+
+| `cost.basis` | How `usd_est` is derived |
+|---|---|
+| `reported` | The harness/gateway returned a billed figure (OpenRouter, LiteLLM). None yet. |
+| `tokens_x_pricing` | Hive's token collector counts input/output/cache tokens per agent kick and prices them with the same list-price table its dashboard Cost panel uses — pinned here as [`schema/pricing.json`](schema/pricing.json) (`as_of` date inside; mirrored from `hive/src/pkg/tokens/pricing.go`). Spend lands on a PR through hive's launch attribution (`/api/launch-cost`, persisted at `/data/launch-cost.json`): the kick that named the issue(s) the PR closed, or the PR itself for review-swarm kicks; a kick naming several refs is split evenly. |
+| `fleet_model_median` | The PR has no attributed kick (older than the attribution store, kicked without a ref, or usage outside the 6-hour ownership horizon). At index-build time it receives the median `tokens_x_pricing` cost of attributed PRs for the same model and role across the fleet (≥ 5 samples), otherwise the fleet's median token mix for that role priced at the model's own list price. The raw record stays `unknown`; the imputation lives only in `data/index.json` (`cost.medians` lists what was used). |
+| `unknown` | Nothing available. Excluded from every cost aggregate. |
+
+Caveats: list prices ≠ what subscription plans (Claude Max, Copilot premium requests) or
+self-hosted inference actually cost; attribution covers only governor and review-swarm kicks;
+and `wall_clock_s` is PR open→merge time, not agent runtime, so no duration-based estimate is
+attempted. The site shows the attributed-vs-imputed share next to every cost figure.
+
 ## Contribute a result
 
 * **One-off / manual:** open a [Submit a result](https://github.com/hivecommons/benchmarks/issues/new?template=submit-result.yml)

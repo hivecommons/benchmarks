@@ -5,6 +5,12 @@ benchmark records (schema/result.schema.json).
 usage: convert-evidence.py --evidence DIR --hive-id ID [--hive-version V]
                            [--public-repos FILE] [--out DIR] [--since YYYY-MM-DD]
                            [--sandbox-runtime none] [--exporter NAME]
+                           [--launch-cost /data/launch-cost.json]
+
+Cost: with --launch-cost, each record gets cost.basis=tokens_x_pricing from
+hive's launch attribution (author: kicks naming the issues the PR closed or
+the PR itself; reviewer: review-swarm kicks naming the PR). Otherwise
+cost.basis=unknown (scripts/costlib.py). Cost never carries repo names.
 
 One record per pull request per role:
   * role=author   when the PR author is a hive agent (author.kind == "agent")
@@ -19,6 +25,7 @@ Stdlib only.
 """
 import argparse
 import collections
+import costlib
 import datetime as dt
 import glob
 import hashlib
@@ -182,7 +189,22 @@ def pr_record_base(repo, number, bundles, hive, public_repos, now_iso):
     return latest, out, quality, task, source, month
 
 
+def cost_refs(repo, number, latest):
+    """(ref, kind) pairs as hive's launch log spells them: governor kicks use
+    the short repo name (hive#123, kind issue); review-swarm kicks use the
+    full name (hivecommons/hive#123, kind pr)."""
+    short = repo.split("/")[-1]
+    author = [(f"{short}#{number}", "issue"), (f"{repo}#{number}", "issue")]
+    for ic in latest.get("issue_closures") or []:
+        if isinstance(ic.get("issue"), int):
+            irepo = ic.get("repo") or repo
+            author += [(f"{irepo.split('/')[-1]}#{ic['issue']}", "issue"), (f"{irepo}#{ic['issue']}", "issue")]
+    reviewer = [(f"{repo}#{number}", "pr"), (f"{short}#{number}", "pr")]
+    return author, reviewer
+
+
 def convert(args):
+    launch_cost = costlib.LaunchCostIndex(args.launch_cost)
     public_repos = set()
     if args.public_repos:
         with open(args.public_repos) as f:
@@ -203,6 +225,7 @@ def convert(args):
         author = latest.get("author") or {}
         base_id = f"{hive['hash']}|{repo}|{number}|"
         verdicts = latest.get("verdicts") or []
+        author_refs, reviewer_refs = cost_refs(repo, number, latest)
 
         if author.get("kind") == "agent" and author.get("model"):
             rec = {
@@ -215,11 +238,13 @@ def convert(args):
                 "sandbox_runtime": args.sandbox_runtime,
                 "task": dict(task, kind=kind_of(author.get("agent"))),
                 "outcome": out,
+                "cost": launch_cost.cost_for(author_refs),
             }
             if quality:
                 rec["quality"] = quality
             by_month[month].append(rec)
             stats["author"] += 1
+            stats["author_costed"] += 1 if rec["cost"]["basis"] != "unknown" else 0
 
         if verdicts:
             counts = collections.Counter((v.get("backend"), v.get("model")) for v in verdicts if v.get("model"))
@@ -235,11 +260,13 @@ def convert(args):
                     "sandbox_runtime": args.sandbox_runtime,
                     "task": dict(task, kind="pr-review"),
                     "outcome": out,
+                    "cost": launch_cost.cost_for(reviewer_refs),
                 }
                 if quality:
                     rec["quality"] = quality
                 by_month[month].append(rec)
                 stats["reviewer"] += 1
+                stats["reviewer_costed"] += 1 if rec["cost"]["basis"] != "unknown" else 0
 
     os.makedirs(args.out, exist_ok=True)
     written = 0
@@ -250,7 +277,7 @@ def convert(args):
             json.dump(recs, f, indent=None, separators=(",", ":"), sort_keys=True)
             f.write("\n")
         written += len(recs)
-    print(f"{args.hive_id}: hash={hive['hash']} prs={len(groups)} bundles_bad={bad} author={stats['author']} reviewer={stats['reviewer']} skipped_old={stats['skipped_old']} written={written} months={len(by_month)}", file=sys.stderr)
+    print(f"{args.hive_id}: hash={hive['hash']} prs={len(groups)} bundles_bad={bad} author={stats['author']} reviewer={stats['reviewer']} skipped_old={stats['skipped_old']} costed={stats['author_costed']}+{stats['reviewer_costed']} written={written} months={len(by_month)}", file=sys.stderr)
     return 0
 
 
@@ -265,6 +292,7 @@ def main():
     p.add_argument("--since", help="skip PRs whose latest bundle is older than YYYY-MM-DD")
     p.add_argument("--sandbox-runtime", default="none")
     p.add_argument("--exporter", default="backfill-from-cluster")
+    p.add_argument("--launch-cost", help="spoke /data/launch-cost.json for per-PR cost attribution")
     return convert(p.parse_args())
 
 
