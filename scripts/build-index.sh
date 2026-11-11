@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Concatenate every record under data/**/*.json (except index.json) into
-# data/index.json and validate each record against schema/result.schema.json.
+# Validate every record under data/**/*.json (except index.json) against
+# schema/result.schema.json, then aggregate them into data/index.json
+# (scripts/build-index.py).
 #
 # Requires jq. Validation uses `npx ajv-cli` when node is available and falls
 # back to python3 + jsonschema (scripts/validate.py). Set SKIP_VALIDATE=1 to
@@ -42,6 +43,4 @@ if [ "${SKIP_VALIDATE:-0}" != "1" ]; then
   fi
 fi
 
-printf '%s' "$RECORDS" | jq --arg now "$(date -u +%FT%TZ)" --arg sha "${GITHUB_SHA:-local}" \
-  '{generated_at: $now, source_commit: $sha, count: length, synthetic_count: (map(select(.synthetic==true))|length), records: .}' > "$OUT"
-echo "wrote $OUT ($(jq .count "$OUT") records, $(jq .synthetic_count "$OUT") synthetic)"
+python3 scripts/build-index.py data "$OUT"

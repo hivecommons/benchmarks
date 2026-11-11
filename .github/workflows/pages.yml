@@ -4,6 +4,8 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * *'   # nightly rebuild of data/index.json + redeploy
 permissions:
   contents: read
   pages: write

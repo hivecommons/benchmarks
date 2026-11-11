@@ -18,15 +18,18 @@ and must keep `scripts/build-index.sh` passing on existing data.
 
 These apply to every record under `data/`, whether exported by hive or written by hand.
 
-1. **Opt-in only.** Nothing is exported from a hive unless its owner set `benchmarks.publish: true`.
-2. **Repository names** appear only when `task.repo_consent: true` — the repo is public **and**
-   its owner agreed. Otherwise `task.repo` is omitted (the schema rejects it).
+1. **Anonymized by default, opt-out.** Every hive exports anonymized records (no repo, no org, no
+   people) unless its owner sets `benchmarks.publish: false`.
+2. **Repository names** appear only when `task.repo_consent: true`, which the exporter sets for
+   repositories GitHub reports as public. Private repos never appear (the schema rejects `task.repo`
+   without consent). An owner may force anonymity for public repos too with
+   `benchmarks.repo_consent: false`.
 3. **Never published:** GitHub logins, prompts, agent transcripts, review finding text or file
    paths, session ids, Nous/experiment questions, secrets, private repo names.
 4. **Cost** is published as estimated USD per record. Owners who do not want absolute spend
    visible may omit `cost.usd` and keep token counts.
-5. **Hive identity** is a salted hash (`source.hive_id`) unless the owner also sets
-   `benchmarks.publish_name: true`.
+5. **Hive identity** is `sha256("hivecommons-benchmarks/v1/" + hive id)[:16]`; hive ids are not
+   public, and the owner sees their hash in the dashboard (Settings → Benchmarks).
 6. **Small-n suppression.** The site never shows a rate for a group with n < 10.
 7. **Takedown.** A publisher may open an issue titled `takedown: <hive_id>`; maintainers remove the
    records and rebuild within 7 days, no questions asked.

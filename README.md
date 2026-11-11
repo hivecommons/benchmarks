@@ -32,21 +32,30 @@ hive spoke ──GET /api/benchmarks/export──▶ hub (opt-in aggregation, re
                                                                    GitHub Pages ◀──┘  site/
 ```
 
-1. A hive owner sets `benchmarks.publish: true` in `hive.yaml` (default **false**).
-2. The spoke exports schema records built from its evidence bundles, cost collector and agent
-   config; the hub (or the owner, by hand) redacts them per [GOVERNANCE.md](GOVERNANCE.md).
-3. Records land here by pull request. CI validates them against the schema, rebuilds
-   `data/index.json`, and deploys the site.
+1. Every hive publishes **anonymized** records by default: model, harness, sandbox runtime,
+   outcome, cost, time-to-merge and ACMM level, keyed by a stable hash of the hive id. Owners can
+   opt out with `benchmarks.publish: false` in `hive.yaml`.
+2. Repository and org names are included only for **public** repositories (activity on a public
+   repo is already public). Private repos stay anonymous. No logins, prompts, finding text or code
+   ever leave the spoke.
+3. The hub pulls `GET /api/benchmarks/export?since=` from every registered spoke **hourly**, batches
+   the records and pushes them to `data/fleet/<hive_hash>/<yyyy-mm>.json` here. Pages rebuilds on
+   push, so the site lags the fleet by at most about an hour. Until that publisher ships
+   (hivecommons/hive#17694), `scripts/backfill-from-cluster.sh` does the same from `kubectl`, and a
+   nightly workflow rebuilds the index.
 
-The exporter does not exist yet — see the help-wanted issues. What hive already has is written up
-in [docs/INVENTORY.md](docs/INVENTORY.md).
+Each hive's hash is shown to its owner in the dashboard (Settings → Benchmarks) and listed in the
+"Contributing hives" table on the site. What hive already collects is written up in
+[docs/INVENTORY.md](docs/INVENTORY.md).
 
 ## What the site shows
 
 Leaderboards by **model**, **agent harness** and **sandbox runtime**: merge rate, CI green on
 first push, cost per merged PR, median hours to merge, 14-day revert rate, human interventions
 per record — each rate with n and a 95 % Wilson interval, and *not reported* below n = 10.
-Filters: org, task kind, harness, runtime, ACMM level, date.
+Two kinds of work: *agent-authored PRs* (default) and *agent reviews*. Filters: org, task kind,
+harness, runtime, ACMM level, month. A "Contributing hives" table lists every hive hash with its
+record counts.
 
 ## Contribute a result
 
