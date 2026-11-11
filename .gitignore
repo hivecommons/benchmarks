@@ -1,0 +1,4 @@
+.cache/
+node_modules/
+.records.*.json
+data/index.json

@@ -1,0 +1,20 @@
+name: Propose a metric
+description: Suggest a new column, task kind, enum value or methodology change
+title: "📝 metric: <name>"
+labels: [methodology]
+body:
+  - type: input
+    id: name
+    attributes: { label: Metric / field name }
+    validations: { required: true }
+  - type: textarea
+    id: definition
+    attributes: { label: Definition, description: Exact formula, denominator, and the hive-side source field (see docs/INVENTORY.md) }
+    validations: { required: true }
+  - type: textarea
+    id: why
+    attributes: { label: What decision does this help someone make? }
+    validations: { required: true }
+  - type: textarea
+    id: privacy
+    attributes: { label: Privacy impact, description: Does it reveal repos, people, prompts or spend? }

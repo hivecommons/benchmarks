@@ -1,0 +1,47 @@
+[
+  {
+    "schema_version": "1",
+    "id": "synthetic-0001",
+    "published_at": "2026-11-11T16:00:00Z",
+    "synthetic": true,
+    "source": { "hive_id": "h-synth-a", "org": "hivecommons", "cluster": "kind", "hive_version": "v5.0.0-synthetic", "exporter": "manual" },
+    "agent": { "name": "fixer-1", "role": "fix", "harness": "claude", "harness_version": "2.x" },
+    "model": { "provider": "anthropic", "name": "claude-example-5", "effort": "high" },
+    "sandbox_runtime": "kubernetes-job",
+    "task": { "kind": "issue-fix", "repo_consent": false, "repo_visibility": "public", "language": "go", "size": { "files_changed": 3, "additions": 80, "deletions": 12, "bucket": "s" }, "acmm_level": 3 },
+    "outcome": { "pr_opened": true, "pr_merged": true, "merge_method": "squash", "ci_green_first_try": true, "ci_status_at_merge": "success", "review_verdict": "approve", "review_confidence": 0.86, "reviewer_models": ["gpt-example-6"], "human_interventions": 0, "wall_clock_s": 5400, "retries": 0, "opened_at": "2026-11-10T09:00:00Z", "merged_at": "2026-11-10T10:30:00Z" },
+    "cost": { "input_tokens": 420000, "output_tokens": 38000, "cache_read_tokens": 1200000, "cache_write_tokens": 90000, "usd": 2.41, "basis": "estimated", "price_table_date": "2026-11-01" },
+    "quality": { "reverted_within_14d": false, "followed_up_within_14d": false, "acmm_level": 3, "acmm_scores": { "1": 1.0, "2": 0.9, "3": 0.75, "4": 0.4 } },
+    "notes": "SYNTHETIC sample record. Not a real measurement."
+  },
+  {
+    "schema_version": "1",
+    "id": "synthetic-0002",
+    "published_at": "2026-11-11T16:00:00Z",
+    "synthetic": true,
+    "source": { "hive_id": "h-synth-b", "org": "projectbluefin", "cluster": "openshift", "hive_version": "v5.0.0-synthetic", "exporter": "manual" },
+    "agent": { "name": "clank-fix", "role": "fix", "harness": "clanker" },
+    "model": { "provider": "openai", "name": "gpt-example-6" },
+    "sandbox_runtime": "openshell",
+    "task": { "kind": "ci-repair", "repo_consent": true, "repo": "example-org/example-repo", "repo_visibility": "public", "language": "typescript", "size": { "files_changed": 1, "additions": 6, "deletions": 2, "bucket": "xs" }, "acmm_level": 2 },
+    "outcome": { "pr_opened": true, "pr_merged": true, "merge_method": "merge", "ci_green_first_try": false, "ci_status_at_merge": "success", "review_verdict": "changes_requested", "review_confidence": 0.71, "human_interventions": 1, "wall_clock_s": 21600, "retries": 2, "opened_at": "2026-11-09T12:00:00Z", "merged_at": "2026-11-09T18:00:00Z" },
+    "cost": { "input_tokens": 910000, "output_tokens": 120000, "usd": 6.8, "basis": "apportioned" },
+    "quality": { "reverted_within_14d": false, "acmm_level": 2 },
+    "notes": "SYNTHETIC sample record. Not a real measurement."
+  },
+  {
+    "schema_version": "1",
+    "id": "synthetic-0003",
+    "published_at": "2026-11-11T16:00:00Z",
+    "synthetic": true,
+    "source": { "hive_id": "h-synth-a", "org": "hivecommons", "cluster": "kind", "hive_version": "v5.0.0-synthetic", "exporter": "manual" },
+    "agent": { "name": "reviewer-sec", "role": "review", "harness": "codex" },
+    "model": { "provider": "google", "name": "gemini-example-4" },
+    "sandbox_runtime": "podman",
+    "task": { "kind": "pr-review", "repo_consent": false, "repo_visibility": "public", "size": { "bucket": "m" }, "acmm_level": 3 },
+    "outcome": { "pr_opened": false, "pr_merged": false, "review_verdict": "changes_requested", "review_confidence": 0.9, "human_interventions": 0, "wall_clock_s": 240, "retries": 0 },
+    "cost": { "input_tokens": 150000, "output_tokens": 9000, "usd": 0.52, "basis": "estimated" },
+    "quality": { "sentinel_findings": 1, "acmm_level": 3 },
+    "notes": "SYNTHETIC sample record. Not a real measurement."
+  }
+]

@@ -1,0 +1,30 @@
+name: Submit a result
+description: Publish one or more benchmark records (or ask us to help you export them)
+title: "📊 result: <org> <yyyy-mm> <agent/model>"
+labels: [data]
+body:
+  - type: markdown
+    attributes:
+      value: Records must follow `schema/result.schema.json`. Paste JSON or link a gist. Read GOVERNANCE.md first.
+  - type: input
+    id: org
+    attributes: { label: Publishing org, placeholder: hivecommons / projectbluefin / other }
+    validations: { required: true }
+  - type: textarea
+    id: records
+    attributes: { label: Records (JSON array) or link, render: json }
+    validations: { required: true }
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy checklist
+      options:
+        - label: No repository name appears without `repo_consent: true` and the owner's agreement
+          required: true
+        - label: No GitHub logins, prompts, transcripts, finding text, file paths or session ids
+          required: true
+        - label: The hive owner opted in to publication
+          required: true
+  - type: input
+    id: hive
+    attributes: { label: Hive version / exporter used }

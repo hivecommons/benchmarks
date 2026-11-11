@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Hive Commons Discord
+    url: https://github.com/hivecommons/hive#community
+    about: Ask questions about hive or the benchmark site
