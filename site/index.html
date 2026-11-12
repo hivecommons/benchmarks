@@ -27,6 +27,8 @@
   .bar { display:inline-block; height:.6rem; background:var(--accent); vertical-align:middle; margin-right:.4rem; border-radius:2px }
   .ci { color:var(--muted); font-size:.8rem }
   .nr { color:var(--muted); font-style:italic }
+  tr.group td { border-bottom-color:transparent } tr.sub td { color:var(--muted); font-size:.85rem; padding-top:.2rem; padding-bottom:.2rem }
+  tr.sub td.sub { padding-left:1.6rem } tr.sub .bar { opacity:.55 } td[title] { cursor:help }
   abbr.est { color:var(--muted); font-size:.75rem; text-decoration:underline dotted; cursor:help; font-weight:normal }
   details { background:var(--card); border:1px solid var(--line); border-radius:6px; padding:.6rem .9rem } summary { cursor:pointer; font-weight:600 }
   footer { color:var(--muted); font-size:.85rem }
@@ -50,6 +52,7 @@
     <label>ACMM level <select id="f-acmm"><option value="">all</option></select></label>
     <label>From month <input type="month" id="f-since"></label>
     <label>Include synthetic <input type="checkbox" id="f-synthetic"></label>
+    <label title="One row per model, or one row per model × the CLI/runtime that reported it (Copilot CLI, Claude Code, Codex CLI…). Hover a model for the raw ids each runtime reported.">Split by runtime/CLI <input type="checkbox" id="f-split"></label>
   </div>
   <div class="stats" id="stats"></div>
 
@@ -66,6 +69,7 @@
     <details open>
       <summary>How these numbers are computed</summary>
       <ul>
+        <li><b>Models.</b> Each CLI spells a model its own way (<code>claude-sonnet-5-5</code> from Copilot CLI, <code>claude-sonnet-5.5</code> from Claude Code, <code>openai-codex/gpt-6.1-sol</code> from pi). Rows are keyed by the <em>canonical</em> id — lowercase, CLI/gateway prefix and reasoning-effort suffix stripped, version separators as dots — computed by hive's exporter (<code>model.canonical</code>) and re-derived at index build for older records (<code>scripts/modelid.py</code>). The vendor shown is the model family's, never the CLI. <code>auto</code> is a runtime auto-select whose model the hive was not told. Hover a model for the raw ids; “Split by runtime/CLI” breaks each model out per harness.</li>
         <li><b>Unit.</b> One record = one unit of agent work on one pull request, exported from a hive's signed per-PR evidence bundle: <i>agent-authored</i> (the agent opened the PR) or <i>agent review</i> (the swarm reviewed someone's PR; the model shown is the majority reviewer model). Schema: <a href="schema/result.schema.json"><code>schema/result.schema.json</code></a>.</li>
         <li><b>Backfill.</b> Records with <code>exporter: backfill-from-cluster</code> were converted from existing evidence by <code>scripts/convert-evidence.py</code>; <code>sandbox_runtime: none</code> because those hives ran agents in-process. <code>task.kind</code> is <code>unknown</code> unless the agent name says otherwise.</li>
         <li><b>Median time to merge</b> is read from a 12-bucket log-scale histogram, so it is a bucket midpoint, not an exact value.</li>
