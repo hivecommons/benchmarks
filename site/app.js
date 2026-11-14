@@ -16,6 +16,15 @@
   const COST_TIP = "Estimate, not a bill. tokens_x_pricing = hive's per-kick token counts × list prices (schema/pricing.json), attributed to the PR via kick refs; fleet_model_median = no attribution for this PR, median of attributed PRs for the same model & role (or median token mix × this model's price). See Methodology → Cost basis.";
   const EST = `<abbr class="est" title="${COST_TIP}">est.</abbr>`;
   const fmtInt = (x) => x.toLocaleString();
+  const SPLIT_KEY = "benchmarks.split";   // localStorage key for the split-by-runtime toggle
+  const SPLIT_PARAM = "split";            // ?split=runtime
+  // Harness ids as hive reports them → the CLI/runtime people know them by.
+  const HARNESS_LABELS = { copilot: "Copilot CLI", claude: "Claude Code", codex: "Codex CLI", gemini: "Gemini CLI", bob: "Bob",
+    goose: "Goose", pi: "pi", omp: "omp", agy: "agy", aider: "Aider", cline: "Cline", kilo: "Kilo", muse: "Muse", omnigent: "Omnigent",
+    opencode: "OpenCode", openhands: "OpenHands", clanker: "Clanker", other: "other" };
+  const harnessLabel = (h) => HARNESS_LABELS[h] || h || "?";
+  // Display name of a canonical model: "vendor / id"; a runtime auto-select has no vendor.
+  const modelLabel = (c) => c.canonical === "auto" ? "runtime auto-select" : `${c.vendor || "?"} / ${c.canonical}`;
 
   function wilson(k, n) {
     if (n === 0) return null;
@@ -40,7 +49,7 @@
   let WALL_BUCKETS_H = [];
 
   function emptyGroup(key) {
-    return { key, n: 0, opened: 0, merged: 0, ci_n: 0, ci_green: 0, cost_n: 0, cost_usd: 0, cost_merged: 0, cost_merged_usd: 0,
+    return { key, variants: new Map(), n: 0, opened: 0, merged: 0, ci_n: 0, ci_green: 0, cost_n: 0, cost_usd: 0, cost_merged: 0, cost_merged_usd: 0,
       cost_basis_n: Object.fromEntries(BASES.map((b) => [b, 0])), revert_n: 0, reverted: 0, interventions: 0, retries: 0, wall: new Array(WALL_BUCKETS_H.length + 1).fill(0) };
   }
 
@@ -54,6 +63,10 @@
       for (const f of ["n", "opened", "merged", "ci_n", "ci_green", "cost_n", "cost_usd", "cost_merged", "cost_merged_usd", "revert_n", "reverted", "interventions", "retries"]) g[f] += c[f] || 0;
       for (const b of BASES) g.cost_basis_n[b] += (c.cost_basis_n || {})[b] || 0;
       (c.wall || []).forEach((v, i) => { g.wall[i] += v; });
+      if (c.model) {
+        const vk = `${c.provider || "?"} / ${c.model}${c.effort ? " (" + c.effort + ")" : ""} · ${harnessLabel(c.harness)}`;
+        g.variants.set(vk, (g.variants.get(vk) || 0) + (c.n || 0));
+      }
     }
     return [...groups.values()].map((g) => ({
       ...g,
@@ -102,7 +115,7 @@
   }
 
   const COLUMNS = [
-    { id: "key", label: "", sort: (a, b) => a.key.localeCompare(b.key), cell: (g) => `<td>${escapeHtml(g.key)}</td>` },
+    { id: "key", label: "", sort: (a, b) => a.key.localeCompare(b.key), cell: (g) => keyCell(g) },
     { id: "n", label: "records", num: true, sort: (a, b) => b.n - a.n, cell: (g) => `<td class="num">${fmtInt(g.n)}</td>` },
     { id: "merge", label: "merge rate", num: true, sort: (a, b) => (b.mergeRate?.rate ?? -1) - (a.mergeRate?.rate ?? -1), cell: (g) => rateCell(g.mergeRate) },
     { id: "ci", label: "CI green 1st try", num: true, sort: (a, b) => (b.ciRate?.rate ?? -1) - (a.ciRate?.rate ?? -1), cell: (g) => rateCell(g.ciRate) },
@@ -112,6 +125,19 @@
     { id: "hi", label: "human interventions / rec", num: true, sort: (a, b) => a.interventions / a.n - b.interventions / b.n, cell: (g) => `<td class="num">${(g.interventions / g.n).toFixed(2)}</td>` },
   ];
 
+  // "reported as" tooltip: every raw id the harnesses reported for this group, with counts.
+  function variantsTip(g) {
+    if (!g.variants || !g.variants.size) return "";
+    const rows = [...g.variants.entries()].sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k}: ${fmtInt(n)}`);
+    return escapeHtml(`reported as\n${rows.join("\n")}`);
+  }
+  function keyCell(g) {
+    const tip = variantsTip(g);
+    const label = g.label != null ? g.label : g.key;
+    if (g.sub) return `<td class="sub"${tip ? ` title="${tip}"` : ""}><span class="via">· ${escapeHtml(label)}</span></td>`;
+    return `<td${tip ? ` title="${tip}"` : ""}>${escapeHtml(label)}${g.children ? ` <span class="ci">${g.children.length} runtimes</span>` : ""}</td>`;
+  }
+
   const sortState = {};
   function renderTable(containerId, groups, firstLabel) {
     const el = document.getElementById(containerId);
@@ -119,8 +145,11 @@
     const sortId = sortState[containerId] || "n";
     const col = COLUMNS.find((c) => c.id === sortId);
     const rows = [...groups].sort(col.sort);
+    const tr = (g) => `<tr${g.sub ? ' class="sub"' : g.children ? ' class="group"' : ""}>${COLUMNS.map((c) => c.cell(g)).join("")}</tr>`;
+    // A group row (model) is followed by its children (model × runtime), each sorted by the same column.
+    const body = rows.map((g) => tr(g) + (g.children ? [...g.children].sort(col.sort).map(tr).join("") : "")).join("");
     el.innerHTML = `<table><thead><tr>${COLUMNS.map((c) => `<th data-col="${c.id}" class="${c.num ? "num" : ""} ${c.id === sortId ? "sorted" : ""}">${c.id === "key" ? firstLabel : c.label}</th>`).join("")}</tr></thead>
-      <tbody>${rows.map((g) => `<tr>${COLUMNS.map((c) => c.cell(g)).join("")}</tr>`).join("")}</tbody></table>`;
+      <tbody>${body}</tbody></table>`;
     el.querySelectorAll("th").forEach((th) => th.addEventListener("click", () => { sortState[containerId] = th.dataset.col; renderTable(containerId, groups, firstLabel); }));
   }
 
@@ -130,10 +159,39 @@
       <tbody>${rows.map((h) => `<tr><td><code>${escapeHtml(h.hive_id)}</code></td><td>${escapeHtml(h.cluster || "")}</td><td>${escapeHtml(h.hive_version || "")}</td><td>${escapeHtml((h.orgs || []).join(", ")) || '<span class="nr">anonymized</span>'}</td><td class="num">${fmtInt(h.records)}</td><td class="num">${fmtInt(h.attributed)}</td><td class="num">${fmtInt(h.authored)}</td><td class="num">${fmtInt(h.reviews)}</td><td>${h.first}${h.first !== h.last ? " → " + h.last : ""}</td></tr>`).join("")}</tbody></table>`;
   }
 
+  // One row per canonical model; with split on, each model row heads a group
+  // of (model × harness) rows carrying their own metrics.
+  function modelGroups(cells, split) {
+    const byModel = new Map();
+    for (const c of cells) if (c.canonical) byModel.set(`${c.vendor}\u0000${c.canonical}`, c);
+    const models = aggregate(cells, (c) => c.canonical && `${c.vendor}\u0000${c.canonical}`);
+    for (const g of models) {
+      const c = byModel.get(g.key);
+      g.label = modelLabel(c);
+      g.key = g.label;
+      if (!split) continue;
+      const kids = aggregate(cells.filter((x) => x.canonical === c.canonical && x.vendor === c.vendor), (x) => `${g.label} · ${harnessLabel(x.harness)}`);
+      g.children = kids.map((k) => ({ ...k, sub: true, label: harnessLabel(k.key.slice(g.label.length + 3)) }));
+    }
+    return models;
+  }
+
+  function splitFromState() {
+    const q = new URLSearchParams(location.search).get(SPLIT_PARAM);
+    if (q != null) return q === "runtime";
+    try { return localStorage.getItem(SPLIT_KEY) === "runtime"; } catch (_) { return false; }
+  }
+  function persistSplit(on) {
+    try { localStorage.setItem(SPLIT_KEY, on ? "runtime" : "model"); } catch (_) { /* private mode */ }
+    const url = new URL(location.href);
+    if (on) url.searchParams.set(SPLIT_PARAM, "runtime"); else url.searchParams.delete(SPLIT_PARAM);
+    history.replaceState(null, "", url);
+  }
+
   function renderStats(cells) {
     const t = aggregate(cells, () => "all")[0] || emptyGroup("all");
     const hives = new Set(cells.map((c) => c.hive_id)).size;
-    const models = new Set(cells.map((c) => c.model)).size;
+    const models = new Set(cells.filter((c) => c.canonical).map((c) => `${c.vendor}/${c.canonical}`)).size;
     $("#stats").innerHTML = [
       [fmtInt(t.n), "records in view"], [hives, "hives"], [models, "models"],
       [t.opened ? fmtPct(t.merged / t.opened) : "—", `merged (${fmtInt(t.merged)}/${fmtInt(t.opened)} PRs)`],
@@ -202,11 +260,13 @@
     const render = () => {
       const view = applyFilter(cells, currentFilter());
       renderStats(view);
-      renderTable("by-model", aggregate(view, (c) => c.model && `${c.provider || "?"} / ${c.model}`), "model");
+      renderTable("by-model", modelGroups(view, $("#f-split").checked), "model");
       renderTable("by-harness", aggregate(view, (c) => c.harness), "harness");
       renderTable("by-runtime", aggregate(view, (c) => c.runtime), "runtime");
     };
     document.getElementById("filters").addEventListener("input", render);
+    $("#f-split").checked = splitFromState();
+    $("#f-split").addEventListener("change", () => { persistSplit($("#f-split").checked); render(); });
     render();
   }).catch((err) => {
     $("#meta").textContent = err.message;
