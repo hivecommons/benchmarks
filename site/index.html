@@ -33,6 +33,26 @@
   details { background:var(--card); border:1px solid var(--line); border-radius:6px; padding:.6rem .9rem } summary { cursor:pointer; font-weight:600 }
   footer { color:var(--muted); font-size:.85rem }
   a { color:var(--accent) }
+  /* charts: inline SVG painted from the same variables, so they follow prefers-color-scheme */
+  :root { --chart-dot:#f5b400; --chart-whisker:#9aa4b2; --chart-grid:#243040; --chart-hover:rgba(245,180,0,.12); }
+  @media (prefers-color-scheme: light) { :root { --chart-dot:#a86e00; --chart-whisker:#5b6672; --chart-grid:#e3e8ee; --chart-hover:rgba(168,110,0,.10); } }
+  figure { margin:.8rem 0; padding:.6rem .8rem; background:var(--card); border:1px solid var(--line); border-radius:6px }
+  figcaption { color:var(--muted); font-size:.85rem; margin-bottom:.3rem }
+  svg.chart { width:100%; height:auto; display:block; overflow:visible }
+  svg.chart text { font:11px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; fill:var(--fg) }
+  svg.chart .tick { fill:var(--muted) } svg.chart .val { fill:var(--muted) }
+  svg.chart .grid { stroke:var(--chart-grid); stroke-width:1 }
+  svg.chart .whisker { stroke:var(--chart-whisker); stroke-width:1.5 }
+  svg.chart .dot { fill:var(--chart-dot) } svg.chart .line { fill:none; stroke:var(--chart-dot); stroke-width:1.5; opacity:.6 }
+  svg.chart .hit { fill:transparent } svg.chart g.row { cursor:pointer; outline:none }
+  svg.chart g.row:hover .hit, svg.chart g.row:focus-visible .hit, svg.chart g.row.on .hit { fill:var(--chart-hover) }
+  svg.chart g.row.on .lab { font-weight:700 }
+  .trends { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:.8rem }
+  .breakdowns { margin-top:.8rem } .breakdowns h3 { font-size:.9rem; color:var(--muted); margin:.4rem 0 }
+  .breakdowns > div, #compare { overflow-x:auto }
+  button.pick { background:none; border:0; padding:0; color:var(--fg); font:inherit; cursor:pointer; text-decoration:underline dotted; text-underline-offset:3px }
+  button.pick:hover, button.pick.on { color:var(--accent); font-weight:700 }
+  #drill-close { font-size:.8rem; color:var(--muted); margin-left:.5rem }
 </style>
 </head>
 <body>
@@ -56,9 +76,12 @@
   </div>
   <div class="stats" id="stats"></div>
 
-  <section><h2>Leaderboard by model</h2><div id="by-model"></div></section>
+  <section><h2>Charts</h2><p class="ci">Click a model to drill down. Dots are point estimates; whiskers are 95% Wilson intervals. Rates need n ≥ 10, cost per merged PR needs 30 merged PRs with a cost estimate.</p><div id="charts"></div></section>
+  <section id="drill" hidden></section>
+  <section><h2>Leaderboard by model</h2><p class="ci">Click a model or harness name to drill down; sort order, filters and selection are kept in the page URL.</p><div id="by-model"></div></section>
   <section><h2>By agent harness</h2><div id="by-harness"></div></section>
   <section><h2>By sandbox runtime</h2><div id="by-runtime"></div></section>
+  <section><h2>Compare two models</h2><div id="compare"></div></section>
 
   <section><h2>Contributing hives</h2>
     <p class="ci">Hives are identified by a stable anonymous hash (shown to each owner in their dashboard under Settings → Benchmarks). Repository names appear only for public repositories.</p>
