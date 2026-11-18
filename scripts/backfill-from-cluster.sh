@@ -76,4 +76,4 @@ for dir in "$WORK"/hive-hosted-*/; do
     --sandbox-runtime "$runtime" --public-repos "$WORK/public-repos.txt" --out "data/fleet/$hash" ${SINCE:+--since "$SINCE"} \
     ${LC:+--launch-cost "$LC"}
 done
-echo "done; now run scripts/build-index.sh and commit data/fleet" >&2
+echo "done; now run scripts/build-index.sh and commit with: git add data/fleet data/index.json (never git add -A or git add .)" >&2
