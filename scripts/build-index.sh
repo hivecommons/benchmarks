@@ -19,8 +19,12 @@ if [ "${#FILES[@]}" -eq 0 ]; then
   exit 0
 fi
 
-# Each file is either one record (object) or an array of records.
-RECORDS=$(jq -s '[ .[] | if type=="array" then .[] else . end ]' "${FILES[@]}")
+# Each file is either one record (object) or an array of records. Pre-fix
+# exporters (hive < v5.221 dev builds) published cost.basis "" where the
+# schema wants "unknown"; the index builder already reads "" as unknown, so
+# fold it here too rather than fail the whole deploy on one spoke.
+RECORDS=$(jq -s '[ .[] | if type=="array" then .[] else . end
+  | if (.cost|type)=="object" and ((.cost.basis // "")=="") then .cost.basis="unknown" else . end ]' "${FILES[@]}")
 
 # Reject duplicate ids.
 DUPES=$(printf '%s' "$RECORDS" | jq -r 'group_by(.id) | map(select(length>1) | .[0].id) | .[]')

@@ -41,10 +41,32 @@
   .bar { display:inline-block; height:.6rem; background:var(--accent); vertical-align:middle; margin-right:.4rem; border-radius:2px }
   .ci { color:var(--muted); font-size:.8rem }
   .nr { color:var(--muted); font-style:italic }
+  tr.group td { border-bottom-color:transparent } tr.sub td { color:var(--muted); font-size:.85rem; padding-top:.2rem; padding-bottom:.2rem }
+  tr.sub td.sub { padding-left:1.6rem } tr.sub .bar { opacity:.55 } td[title] { cursor:help }
   abbr.est { color:var(--muted); font-size:.75rem; text-decoration:underline dotted; cursor:help; font-weight:normal }
   details { background:var(--card); border:1px solid var(--line); border-radius:6px; padding:.6rem .9rem } summary { cursor:pointer; font-weight:600 }
   footer { color:var(--muted); font-size:.85rem }
   a { color:var(--accent) }
+  /* charts: inline SVG painted from the same variables, so they follow prefers-color-scheme */
+  :root { --chart-dot:#f5b400; --chart-whisker:#9aa4b2; --chart-grid:#243040; --chart-hover:rgba(245,180,0,.12); }
+  @media (prefers-color-scheme: light) { :root { --chart-dot:#a86e00; --chart-whisker:#5b6672; --chart-grid:#e3e8ee; --chart-hover:rgba(168,110,0,.10); } }
+  figure { margin:.8rem 0; padding:.6rem .8rem; background:var(--card); border:1px solid var(--line); border-radius:6px }
+  figcaption { color:var(--muted); font-size:.85rem; margin-bottom:.3rem }
+  svg.chart { width:100%; height:auto; display:block; overflow:visible }
+  svg.chart text { font:11px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; fill:var(--fg) }
+  svg.chart .tick { fill:var(--muted) } svg.chart .val { fill:var(--muted) }
+  svg.chart .grid { stroke:var(--chart-grid); stroke-width:1 }
+  svg.chart .whisker { stroke:var(--chart-whisker); stroke-width:1.5 }
+  svg.chart .dot { fill:var(--chart-dot) } svg.chart .line { fill:none; stroke:var(--chart-dot); stroke-width:1.5; opacity:.6 }
+  svg.chart .hit { fill:transparent } svg.chart g.row { cursor:pointer; outline:none }
+  svg.chart g.row:hover .hit, svg.chart g.row:focus-visible .hit, svg.chart g.row.on .hit { fill:var(--chart-hover) }
+  svg.chart g.row.on .lab { font-weight:700 }
+  .trends { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:.8rem }
+  .breakdowns { margin-top:.8rem } .breakdowns h3 { font-size:.9rem; color:var(--muted); margin:.4rem 0 }
+  .breakdowns > div, #compare { overflow-x:auto }
+  button.pick { background:none; border:0; padding:0; color:var(--fg); font:inherit; cursor:pointer; text-decoration:underline dotted; text-underline-offset:3px }
+  button.pick:hover, button.pick.on { color:var(--accent); font-weight:700 }
+  #drill-close { font-size:.8rem; color:var(--muted); margin-left:.5rem }
 </style>
 </head>
 <body>
@@ -64,12 +86,16 @@
     <label>ACMM level <select id="f-acmm"><option value="">all</option></select></label>
     <label>From month <input type="month" id="f-since"></label>
     <label>Include synthetic <input type="checkbox" id="f-synthetic"></label>
+    <label title="One row per model, or one row per model × the CLI/runtime that reported it (Copilot CLI, Claude Code, Codex CLI…). Hover a model for the raw ids each runtime reported.">Split by runtime/CLI <input type="checkbox" id="f-split"></label>
   </div>
   <div class="stats" id="stats"></div>
 
-  <section><h2>Leaderboard by model</h2><div id="by-model"></div></section>
+  <section><h2>Charts</h2><p class="ci">Click a model to drill down. Dots are point estimates; whiskers are 95% Wilson intervals. Rates need n ≥ 10, cost per merged PR needs 30 merged PRs with a cost estimate.</p><div id="charts"></div></section>
+  <section id="drill" hidden></section>
+  <section><h2>Leaderboard by model</h2><p class="ci">Click a model or harness name to drill down; sort order, filters and selection are kept in the page URL.</p><div id="by-model"></div></section>
   <section><h2>By agent harness</h2><div id="by-harness"></div></section>
   <section><h2>By sandbox runtime</h2><div id="by-runtime"></div></section>
+  <section><h2>Compare two models</h2><div id="compare"></div></section>
 
   <section><h2>Contributing hives</h2>
     <p class="ci">Hives are identified by a stable anonymous hash (shown to each owner in their dashboard under Settings → Benchmarks). Repository names appear only for public repositories.</p>
@@ -80,11 +106,12 @@
     <details open>
       <summary>How these numbers are computed</summary>
       <ul>
+        <li><b>Models.</b> Each CLI spells a model its own way (<code>claude-sonnet-5-5</code> from Copilot CLI, <code>claude-sonnet-5.5</code> from Claude Code, <code>openai-codex/gpt-6.1-sol</code> from pi). Rows are keyed by the <em>canonical</em> id — lowercase, CLI/gateway prefix and reasoning-effort suffix stripped, version separators as dots — computed by hive's exporter (<code>model.canonical</code>) and re-derived at index build for older records (<code>scripts/modelid.py</code>). The vendor shown is the model family's, never the CLI. <code>auto</code> is a runtime auto-select whose model the hive was not told. Hover a model for the raw ids; “Split by runtime/CLI” breaks each model out per harness.</li>
         <li><b>Unit.</b> One record = one unit of agent work on one pull request, exported from a hive's signed per-PR evidence bundle: <i>agent-authored</i> (the agent opened the PR) or <i>agent review</i> (the swarm reviewed someone's PR; the model shown is the majority reviewer model). Schema: <a href="schema/result.schema.json"><code>schema/result.schema.json</code></a>.</li>
         <li><b>Backfill.</b> Records with <code>exporter: backfill-from-cluster</code> were converted from existing evidence by <code>scripts/convert-evidence.py</code>; <code>sandbox_runtime: none</code> because those hives ran agents in-process. <code>task.kind</code> is <code>unknown</code> unless the agent name says otherwise.</li>
         <li><b>Median time to merge</b> is read from a 12-bucket log-scale histogram, so it is a bucket midpoint, not an exact value.</li>
-        <li><b>Merge rate</b> = merged ÷ records with <code>pr_opened</code>. <b>CI green first try</b> = <code>ci_green_first_try</code> true ÷ records where CI was captured (nulls excluded). <b>Cost / merged PR</b> = Σ <code>cost.usd_est</code> over merged PRs in the group ÷ merged PRs with a cost estimate; <code>cost.basis = unknown</code> records are excluded from the numerator <em>and</em> the denominator. The small "attr." percentage says how many of the group's records have a PR-attributed cost rather than a fleet-median imputation.</li>
-        <li><b>Intervals.</b> Every rate shows n and a 95% Wilson score interval. Groups with n &lt; 10 are shown as <span class="nr">not reported</span>, the same rule <code>hivecommons/hive</code> uses for its monthly outcome benchmark.</li>
+        <li><b>Merge rate</b> = merged ÷ records with <code>pr_opened</code>. <b>CI green first try</b> = <code>ci_green_first_try</code> true ÷ records where CI was captured (nulls excluded). <b>Cost / merged PR</b> (shown with its coverage: records with cost ÷ all records) = Σ <code>cost.usd_est</code> over merged PRs in the group ÷ merged PRs with a cost estimate; <code>cost.basis = unknown</code> records are excluded from the numerator <em>and</em> the denominator. The small "attr." percentage says how many of the group's records have a PR-attributed cost rather than a fleet-median imputation.</li>
+        <li><b>Intervals.</b> Every rate shows n and a 95% Wilson score interval. Rates with n &lt; 10, and cost per merged PR with fewer than 30 merged PRs with a cost estimate, are shown as <span class="nr">insufficient data</span>; the rate rule is the same <code>hivecommons/hive</code> uses for its monthly outcome benchmark.</li>
         <li id="cost-methodology"><b>Cost basis — every dollar figure is an estimate, not a bill.</b> Each record carries <code>cost.usd_est</code> and <code>cost.basis</code>:
           <ul>
             <li><code>reported</code> — the harness or gateway returned a billed figure (OpenRouter/LiteLLM). None yet.</li>
@@ -95,8 +122,13 @@
           <span class="ci">Why not duration × $/h? <code>wall_clock_s</code> is PR open→merge time, not agent runtime, so it would mostly measure review latency.</span>
           <div id="cost-basis"></div></li>
         <li><b>Synthetic records</b> (<code>synthetic: true</code>) are excluded unless you tick the box. They exist so the page renders before real exports land.</li>
-        <li><b>Privacy.</b> Every hive publishes anonymized records by default (opt-out: <code>benchmarks.publish: false</code>). Repository and org names appear only for public repositories (<code>repo_consent</code>); private repos stay anonymous. No logins, prompts, finding text or code are published. See <a href="https://github.com/hivecommons/benchmarks/blob/main/GOVERNANCE.md">GOVERNANCE.md</a>.</li>
-        <li><b>Confounders.</b> Models are not assigned to tasks at random: harder tasks go to bigger models, review agents never open PRs, and hives differ in ACMM policy. Filter by task kind and ACMM level before comparing; treat cross-model differences as observational.</li>
+        <li><b>Privacy.</b> Every hive publishes anonymized records by default (opt-out: <code>benchmarks.publish: false</code>). Repository names appear only for public repositories (activity on a public repo is already public; the exporter sets <code>repo_consent</code> for repos GitHub reports as public). Private repos never appear, and an owner can opt out of naming with <code>benchmarks.repo_consent: false</code>. No logins, prompts, finding text or code are published. See <a href="https://github.com/hivecommons/benchmarks/blob/main/GOVERNANCE.md">GOVERNANCE.md</a>.</li>
+        <li id="canonical-tasks"><b>Canonical task kinds.</b> The leaderboard covers <code>issue-fix</code>, <code>ci-repair</code>, <code>pr-review</code> and <code>dependency-update</code>. <code>size.bucket</code> (xs to xl) is required for <code>issue-fix</code> and optional for the others. Records of other kinds are stored but not ranked.</li>
+        <li><b>Metrics.</b> Primary: merge rate, CI green first try, cost per merged PR, 14-day revert rate. Secondary: median time to merge, human interventions per record, retries. Cost per merged PR excludes records without cost from both numerator and denominator and always shows coverage next to it.</li>
+        <li><b>Hive identity.</b> Hives are keyed by a stable salted hash so trends work; a hive may ask for its salt to be rotated, which starts a new, unlinked series.</li>
+        <li><b>Synthetic and replay results</b> need an explicit <code>synthetic: true</code>, are never mixed into the default leaderboard and are shown only when you tick "Include synthetic".</li>
+        <li><b>Full text.</b> <a href="https://github.com/hivecommons/benchmarks/blob/main/METHODOLOGY.md">METHODOLOGY.md</a> is the authoritative version.</li>
+        <li><b>Confounders.</b> Models are not assigned to tasks at random: harder tasks go to bigger models, review agents never open PRs, and hives differ in ACMM policy. Filter by task kind and ACMM level before comparing; treat cross-model differences as observational. See the known limitations in METHODOLOGY.md.</li>
       </ul>
     </details>
   </section>

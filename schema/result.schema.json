@@ -142,22 +142,27 @@
           "type": "string",
           "description": "Exact model id as reported by the harness (evidence author.model)."
         },
+        "canonical": {
+          "type": "string",
+          "description": "Canonical model id the reported name folds to (pkg/modelfamily.Resolve): lowercase, CLI/gateway prefix and reasoning-effort suffix stripped, version separators as dots, e.g. claude-sonnet-5.5; 'auto' for a runtime auto-select."
+        },
         "version": {
           "type": "string"
         },
         "effort": {
           "type": "string",
-          "description": "Reasoning effort / thinking budget label if the harness exposes one."
+          "description": "Reasoning effort / thinking budget label if the harness exposes one (low, medium, high, xhigh, max); split off the model id by the exporter."
         }
       }
     },
     "sandbox_runtime": {
       "type": "string",
-      "description": "Where the agent process ran (crux/config SandboxRuntime*). Open enum.",
+      "description": "Where the agent process ran (crux/config SandboxRuntime*). Open enum. Values: podman = agent runs in a local Podman container (hive default); job = agent runs in a one-shot Kubernetes Job pod (hive emits 'job'); kubernetes-job = legacy alias of job, kept so older records stay valid; openshell = OpenShell sandbox; substrate = Substrate sandbox; none = agent ran in-process, no sandbox.",
       "anyOf": [
         {
           "enum": [
             "podman",
+            "job",
             "kubernetes-job",
             "openshell",
             "substrate",

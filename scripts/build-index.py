@@ -3,7 +3,10 @@
 
 The browser never sees raw records: index.json holds pre-aggregated cells at
 the grain (org, hive_id, month, role, kind, harness, runtime, acmm, provider,
-model, synthetic) plus per-hive totals. Wall-clock is kept as a 12-bucket
+model, vendor, canonical, effort, synthetic) plus per-hive totals. provider
+and model are the id as reported; vendor/canonical/effort are the folded
+reading (scripts/modelid.py, mirroring hive's pkg/modelfamily.Resolve) so
+the site shows one row per model however the CLI spelled it. Wall-clock is kept as a 12-bucket
 log-scale histogram so the site can report a median without raw values.
 
 Cost: records lacking an attributed cost get a fleet_model_median estimate
@@ -16,6 +19,7 @@ import costlib
 import datetime as dt
 import glob
 import json
+import modelid
 import os
 import sys
 
@@ -59,8 +63,10 @@ def main():
         src, ag, md, task, out, q = r.get("source", {}), r.get("agent", {}), r.get("model", {}), r.get("task", {}), r.get("outcome", {}), r.get("quality", {})
         month = (out.get("merged_at") or out.get("opened_at") or r["published_at"])[:7]
         acmm = task.get("acmm_level", q.get("acmm_level"))
+        canonical, vendor, effort = modelid.resolve_record_model(md)
         key = (src.get("org", ""), src.get("hive_id", ""), month, ag.get("role", ""), task.get("kind", ""), ag.get("harness", ""),
-               r.get("sandbox_runtime", ""), "" if acmm is None else str(acmm), md.get("provider", ""), md.get("name", ""), bool(r.get("synthetic")))
+               r.get("sandbox_runtime", ""), "" if acmm is None else str(acmm), md.get("provider", ""), md.get("name", ""),
+               vendor, canonical, effort, bool(r.get("synthetic")))
         c = cells.get(key)
         if c is None:
             c = cells[key] = {"n": 0, "opened": 0, "merged": 0, "ci_n": 0, "ci_green": 0, "cost_n": 0, "cost_usd": 0.0, "cost_merged": 0, "cost_merged_usd": 0.0,
@@ -102,7 +108,7 @@ def main():
         if src.get("org"):
             h["orgs"].add(src["org"])
 
-    dims = ["org", "hive_id", "month", "role", "kind", "harness", "runtime", "acmm", "provider", "model", "synthetic"]
+    dims = ["org", "hive_id", "month", "role", "kind", "harness", "runtime", "acmm", "provider", "model", "vendor", "canonical", "effort", "synthetic"]
     cell_rows = [dict(zip(dims, k), **v) for k, v in sorted(cells.items(), key=lambda kv: [str(x) for x in kv[0]])]
     for c in cell_rows:
         c["cost_usd"], c["cost_merged_usd"] = round(c["cost_usd"], 4), round(c["cost_merged_usd"], 4)
@@ -113,6 +119,7 @@ def main():
         "generated_at": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "source_commit": os.environ.get("GITHUB_SHA", "local"),
         "schema_version": "1",
+        "index_version": "2",
         "count": len(recs),
         "synthetic_count": len(recs) - len(real),
         "attributed_count": sum(1 for r in real if r.get("task", {}).get("repo_consent")),
