@@ -157,11 +157,12 @@
     },
     "sandbox_runtime": {
       "type": "string",
-      "description": "Where the agent process ran (crux/config SandboxRuntime*). Open enum.",
+      "description": "Where the agent process ran (crux/config SandboxRuntime*). Open enum. Values: podman = agent runs in a local Podman container (hive default); job = agent runs in a one-shot Kubernetes Job pod (hive emits 'job'); kubernetes-job = legacy alias of job, kept so older records stay valid; openshell = OpenShell sandbox; substrate = Substrate sandbox; none = agent ran in-process, no sandbox.",
       "anyOf": [
         {
           "enum": [
             "podman",
+            "job",
             "kubernetes-job",
             "openshell",
             "substrate",
