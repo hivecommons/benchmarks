@@ -20,12 +20,10 @@ These apply to every record under `data/`, whether exported by hive or written b
 
 1. **Anonymized by default, opt-out.** Every hive exports anonymized records (no repo, no org, no
    people) unless its owner sets `benchmarks.publish: false`.
-2. **Repository names** appear only when `task.repo_consent: true` AND the repo is public AND an
-   owner or admin of that repo/org agreed. Public status alone is **not** consent. Agreement is
-   recorded in `consent/repos.txt` through a PR authored by an account with admin rights on that
-   repo or org, and CI checks data records against it (see METHODOLOGY.md). Private repos never
-   appear (the schema rejects `task.repo` without consent). An owner may force anonymity for
-   public repos too with `benchmarks.repo_consent: false`.
+2. **Repository names** appear only for **public** repositories (activity on a public repo is
+   already public). The exporter sets `task.repo_consent: true` for repositories GitHub reports as
+   public. Private repos never appear (the schema rejects `task.repo` without consent). An owner
+   may opt out of naming, even for public repos, with `benchmarks.repo_consent: false`.
 3. **Never published:** GitHub logins, prompts, agent transcripts, review finding text or file
    paths, session ids, Nous/experiment questions, secrets, private repo names.
 4. **Cost** is published as estimated USD per record. Owners who do not want absolute spend

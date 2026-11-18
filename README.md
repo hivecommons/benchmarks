@@ -36,10 +36,10 @@ hive spoke ──hourly POST /api/benchmarks/ingest──▶ hub (/data/benchmar
 1. Every hive publishes **anonymized** records by default: model, harness, sandbox runtime,
    outcome, time-to-merge and ACMM level, keyed by a salted hash of the hive id. Owners can
    opt out with `benchmarks.publish: false` in `hive.yaml`.
-2. Repository names are included only for **public** repositories whose owner or admin agreed,
-   recorded in [`consent/repos.txt`](consent/repos.txt). Public status alone is not consent;
-   everything else stays anonymous, and `benchmarks.repo_consent: false`
-   anonymizes even allow-listed ones. No logins, prompts, finding text or code ever leave the spoke.
+2. Repository names are included only for **public** repositories (activity on a public
+   repo is already public); the exporter sets `repo_consent: true` for repos GitHub reports as
+   public. Private repos never appear, and an owner can opt out of naming with
+   `benchmarks.repo_consent: false`. No logins, prompts, finding text or code ever leave the spoke.
 3. **Cadence is hub-driven and hourly.** Each spoke converts the evidence bundles it already
    seals and pushes new records (since its last watermark) to the hub's
    `POST /api/benchmarks/ingest` with its per-hive heartbeat bearer; the hub recomputes the hash

@@ -64,22 +64,12 @@ outcomebench benchmark.
 
 ## 5. Consent for repository names
 
-`task.repo` is published only when **both** hold:
-
-1. the repository is **public**, and
-2. an **owner or admin** of that repository (or its org) agreed.
-
-Consent is recorded by a PR adding the repository (or `owner/*`) to
-[`consent/repos.txt`](consent/repos.txt), **authored by an account with admin rights** on that
-repository or org. **Public status alone is not consent.** CI
-([`scripts/check-repo-consent.py`](scripts/check-repo-consent.py), workflow `consent`) checks
-every data record against the allow-list. Everything else is anonymised: drop `task.repo` (and
-`task.repo_consent`); an anonymised record always passes the check, which is the exemption path.
-
-Existing data is grandfathered: while `consent/enforce-from.txt` is `none` the check only reports
-violations and never fails. Setting it to a timestamp makes records published at or after it fail
-when their repo is not allow-listed. Withdrawal: remove the line; owners can also use the
-`takedown:` issue process in GOVERNANCE.md.
+`task.repo` is published only for **public** repositories: activity on a public repository is
+already public. The exporter sets `task.repo_consent: true` for repositories GitHub reports as
+public. **Private repositories never appear.** An owner can opt out of being named with
+`benchmarks.repo_consent: false`, which anonymises even public repositories. The schema rejects
+`task.repo` unless `repo_consent` is true. Everything else is anonymised. Withdrawal is also
+possible through the `takedown:` issue process in GOVERNANCE.md.
 
 ## 6. Hive identity
 
