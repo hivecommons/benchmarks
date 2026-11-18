@@ -1,4 +1,6 @@
 .cache/
 node_modules/
 .records.*.json
+*.XXXXXX
+*.XXXXXX.*
 data/index.json
