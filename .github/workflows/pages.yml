@@ -24,6 +24,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install --quiet jsonschema
+      - name: Unit tests
+        run: python3 -m unittest discover -s scripts -p 'test_*.py'
       - name: Build and validate index
         run: scripts/build-index.sh
       - name: Guard against temp artifacts
