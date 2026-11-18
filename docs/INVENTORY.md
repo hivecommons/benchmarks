@@ -48,7 +48,7 @@ exporter (RFC) has to add.
 ## Enumerations hive already uses (schema should reuse them)
 
 * **Harness / CLI backend** (`crux/config`, `IsCLIBackend`): `agy aider bob claude cline codex copilot gemini goose kilo muse omnigent omp opencode openhands pi`. Inference backends (`litellm vllm watsonx …`) are separate.
-* **Sandbox runtime** (`crux/config/agent_config.go`): `podman`, `job` (Kubernetes Job), `openshell`; plus `none` (in-process). "substrate" is not a hive runtime value today — keep it as an open enum.
+* **Sandbox runtime** (`crux/config/agent_config.go`): `podman`, `job` (one-shot Kubernetes Job pod), `openshell`, `substrate`; plus `none` (in-process). The schema also keeps the legacy alias `kubernetes-job`; the enum stays open (`x-*`).
 * **Author kind**: `human | agent | bot`.
 * **Review verdict**: `approve | changes_requested | comment` (+ confidence 0–1).
 * **ACMM level**: 0–5 (ADR-0003).
