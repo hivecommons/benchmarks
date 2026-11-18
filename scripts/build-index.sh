@@ -12,7 +12,9 @@ cd "$(dirname "$0")/.."
 SCHEMA=schema/result.schema.json
 OUT=data/index.json
 
-mapfile -t FILES < <(find data -name '*.json' ! -name 'index.json' | sort)
+# Portable read loop (macOS ships bash 3.2, which has no mapfile).
+FILES=()
+while IFS= read -r f; do FILES+=("$f"); done < <(find data -name '*.json' ! -name 'index.json' | sort)
 if [ "${#FILES[@]}" -eq 0 ]; then
   echo "no data files" >&2
   echo '{"generated_at":"'"$(date -u +%FT%TZ)"'","records":[]}' > "$OUT"
@@ -33,7 +35,9 @@ if [ -n "$DUPES" ]; then
 fi
 
 if [ "${SKIP_VALIDATE:-0}" != "1" ]; then
-  TMP=$(mktemp -p . .records.XXXXXX.json)
+  # Suffix-free template outside the repo: BSD/macOS mktemp does not expand a
+  # template with a suffix after the X's and would create the literal file.
+  TMP=$(mktemp "${TMPDIR:-/tmp}/records.XXXXXX")
   trap 'rm -f "$TMP"' EXIT
   printf '%s' "$RECORDS" | jq '.' > "$TMP"
   if command -v python3 >/dev/null && python3 -c 'import jsonschema' 2>/dev/null; then

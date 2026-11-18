@@ -4,3 +4,4 @@ node_modules/
 *.XXXXXX
 *.XXXXXX.*
 data/index.json
+__pycache__/

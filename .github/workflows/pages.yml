@@ -26,6 +26,8 @@ jobs:
       - run: pip install --quiet jsonschema
       - name: Build and validate index
         run: scripts/build-index.sh
+      - name: Guard against temp artifacts
+        run: scripts/check-no-temp-artifacts.sh
       - name: Assemble site
         run: |
           mkdir -p _site/data _site/schema
