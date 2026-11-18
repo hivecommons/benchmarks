@@ -1,0 +1,24 @@
+# Repo-name consent allow-list for published benchmark records.
+#
+# A record under data/ may publish `task.repo` ONLY for a repository listed here
+# (see METHODOLOGY.md, "Consent for repo names", and GOVERNANCE.md).
+#
+# Format: one entry per line, case-insensitive.
+#   owner/name    exactly that repository
+#   owner/*       every repository owned by that user or org
+#   # ...         comment; blank lines ignored
+#
+# Rules for adding a line:
+#   1. The repository must be public.
+#   2. The PR adding the line must be authored by an account with admin rights on that
+#      repository (or owner/admin of the org for an owner/* entry). Public status alone is NOT
+#      consent. Maintainers verify admin rights before merging.
+#   3. Say in the PR body who agreed and for which scope.
+#
+# To withdraw consent, remove the line in a PR; records already published then need
+# re-anonymising (drop task.repo) or a takedown issue (GOVERNANCE.md rule 7).
+#
+# Anonymised records (no task.repo) never need an entry here.
+
+# Operated by the maintainers: the hivecommons org itself.
+hivecommons/*

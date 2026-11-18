@@ -5,7 +5,8 @@
 (() => {
   "use strict";
 
-  const MIN_N = 10;            // below this a rate is "not reported" (outcomebench rule)
+  const MIN_N = 10;            // below this a rate is "insufficient data" (outcomebench rule)
+  const MIN_N_COST = 30;       // merged PRs with a cost needed to show cost per merged PR (METHODOLOGY.md)
   const Z95 = 1.96;            // Wilson interval z for 95 %
   const DATA_PATHS = ["data/index.json", "../data/index.json"];
 
@@ -98,7 +99,7 @@
 
   // ---- rendering --------------------------------------------------------
   function rateCell(w) {
-    if (!w || w.n < MIN_N) return `<td class="num nr">not reported${w ? ` (n=${w.n})` : ""}</td>`;
+    if (!w || w.n < MIN_N) return `<td class="num nr">insufficient data${w ? ` (n=${w.n})` : ""}</td>`;
     const width = Math.round(w.rate * 60);
     return `<td class="num"><span class="bar" style="width:${width}px"></span>${fmtPct(w.rate)} <span class="ci">[${fmtPct(w.lo)}–${fmtPct(w.hi)}] n=${w.n}</span></td>`;
   }
@@ -106,9 +107,11 @@
   // carry a PR-attributed cost vs a fleet-median imputation.
   function costCell(g) {
     if (g.costPerMerged == null) return '<td class="num nr">—</td>';
+    const cov = `${fmtPct(g.cost_n / g.n)} cost coverage`;
+    if (g.cost_merged < MIN_N_COST) return `<td class="num nr" title="needs ${MIN_N_COST} merged PRs with cost">insufficient data <span class="ci">(n=${g.cost_merged}, ${cov})</span></td>`;
     const attr = g.cost_basis_n.reported + g.cost_basis_n.tokens_x_pricing;
     const tip = `${fmtInt(g.cost_merged)} merged PRs with cost; basis: ${attr} attributed, ${g.cost_basis_n.fleet_model_median} fleet-median, ${g.cost_basis_n.unknown} unknown`;
-    return `<td class="num" title="${tip}">${fmtUsd(g.costPerMerged)} <span class="ci">${fmtPct(attr / g.n)} attr.</span></td>`;
+    return `<td class="num" title="${tip}">${fmtUsd(g.costPerMerged)} <span class="ci">${fmtPct(attr / g.n)} attr. · ${cov}</span></td>`;
   }
   function numCell(x, fmt) {
     return `<td class="num">${x == null || Number.isNaN(x) ? '<span class="nr">—</span>' : fmt(x)}</td>`;

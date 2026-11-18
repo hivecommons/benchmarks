@@ -1,0 +1,21 @@
+name: consent
+on:
+  pull_request:
+    paths: ['data/**', 'consent/**', 'scripts/check-repo-consent.py', '.github/workflows/consent.yml']
+  push:
+    branches: [main]
+    paths: ['data/**', 'consent/**', 'scripts/check-repo-consent.py']
+permissions:
+  contents: read
+jobs:
+  repo-consent:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check task.repo against consent/repos.txt
+        run: python3 scripts/check-repo-consent.py
