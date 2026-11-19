@@ -81,7 +81,11 @@ exporter (RFC) has to add.
 * Open issues matching "benchmark": only #17620 (workflow models RFC) — unrelated.
 * No `hivecommons/benchmarks`, `agent-benchmarks` or `leaderboard` repo existed before this work.
 
-## Privacy rules proposed for publication (feeds RFC + GOVERNANCE.md)
+## Privacy rules proposed for publication (historical; superseded by GOVERNANCE.md)
+
+This is the original pre-RFC proposal. The adopted policy is in [GOVERNANCE.md](../GOVERNANCE.md): publication is
+**anonymized and on by default**, and owners opt out with `benchmarks.publish: false`. Where the list below says
+"opt-in" or "default false", GOVERNANCE.md is authoritative.
 
 1. Default **opt-in per hive** (`benchmarks.publish: true` in hive.yaml, default false).
 2. Repo names published only when `task.repo_consent: true` (public repo **and** owner opted in); otherwise `task.repo` is omitted and `task.repo_visibility` kept.
