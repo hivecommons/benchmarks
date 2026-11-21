@@ -26,6 +26,9 @@ jobs:
       - run: pip install --quiet jsonschema
       - name: Unit tests
         run: python3 -m unittest discover -s scripts -p 'test_*.py'
+      - name: Pricing drift check (warn-only)
+        continue-on-error: true
+        run: python3 scripts/check-pricing-drift.py
       - name: Build and validate index
         run: scripts/build-index.sh
       - name: Guard against temp artifacts
