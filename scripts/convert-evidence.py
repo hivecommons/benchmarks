@@ -30,6 +30,7 @@ import datetime as dt
 import glob
 import hashlib
 import json
+import modelid
 import os
 import sys
 
@@ -64,11 +65,11 @@ def provider_of(model: str) -> str:
     m = (model or "").lower()
     if "/" in m:
         return m.split("/", 1)[0]
-    for pfx, prov in (("claude", "anthropic"), ("gpt", "openai"), ("o1", "openai"), ("o3", "openai"), ("o4", "openai"),
-                      ("gemini", "google"), ("granite", "ibm"), ("llama", "meta"), ("mistral", "mistral"),
-                      ("qwen", "alibaba"), ("deepseek", "deepseek"), ("grok", "xai"), ("kimi", "moonshot")):
+    # modelid.VENDOR_FAMILIES is the only family -> vendor table; longest
+    # prefix first so a family never shadows a longer one it prefixes.
+    for pfx in sorted(modelid.VENDOR_FAMILIES, key=len, reverse=True):
         if m.startswith(pfx):
-            return prov
+            return modelid.VENDOR_FAMILIES[pfx]
     return "unknown"
 
 
