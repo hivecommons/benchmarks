@@ -90,8 +90,7 @@ attempted. The site shows the attributed-vs-imputed share next to every cost fig
   issue or a PR adding `data/<org>/<yyyy-mm>/<file>.json`. Run `scripts/build-index.sh` locally to validate.
 * **New metric or task kind:** open a [Propose a metric](https://github.com/hivecommons/benchmarks/issues/new?template=propose-metric.yml) issue.
 * **Code:** `site/` is vanilla HTML/JS, no build step. `scripts/build-index.sh` always needs `jq` and
-  `python3` (it builds the index), plus either `jsonschema` (`pip install jsonschema`) or
-  `node`/`npm` for schema validation.
+  `python3` (it builds the index), plus `jsonschema` (`pip install jsonschema`) for schema validation.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
 

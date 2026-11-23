@@ -3,9 +3,8 @@
 # schema/result.schema.json, then aggregate them into data/index.json
 # (scripts/build-index.py).
 #
-# Requires jq. Validation uses `npx ajv-cli` when node is available and falls
-# back to python3 + jsonschema (scripts/validate.py). Set SKIP_VALIDATE=1 to
-# skip validation.
+# Requires jq. Validation uses python3 + jsonschema (scripts/validate.py;
+# `pip install jsonschema`). Set SKIP_VALIDATE=1 to skip validation.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -40,15 +39,11 @@ if [ "${SKIP_VALIDATE:-0}" != "1" ]; then
   TMP=$(mktemp "${TMPDIR:-/tmp}/records.XXXXXX")
   trap 'rm -f "$TMP"' EXIT
   printf '%s' "$RECORDS" | jq '.' > "$TMP"
-  if command -v python3 >/dev/null && python3 -c 'import jsonschema' 2>/dev/null; then
-    python3 scripts/validate.py "$SCHEMA" "$TMP"
-  elif command -v npm >/dev/null; then
-    [ -d .cache/node_modules/ajv-formats ] || npm install --silent --no-save --no-audit --no-fund --prefix .cache ajv@8 ajv-formats@3
-    NODE_MODULES_DIR=.cache/node_modules node scripts/validate.mjs "$SCHEMA" "$TMP"
-  else
-    echo "no validator available (need python3+jsonschema or node); set SKIP_VALIDATE=1 to bypass" >&2
+  if ! command -v python3 >/dev/null || ! python3 -c 'import jsonschema' 2>/dev/null; then
+    echo "python3 with jsonschema is required for validation: pip install jsonschema (or set SKIP_VALIDATE=1 to bypass)" >&2
     exit 1
   fi
+  python3 scripts/validate.py "$SCHEMA" "$TMP"
 fi
 
 python3 scripts/build-index.py data "$OUT"
