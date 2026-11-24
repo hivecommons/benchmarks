@@ -174,8 +174,8 @@ class MainTest(unittest.TestCase):
 
     def test_cost_aggregation_and_min_n_inputs(self):
         # The site applies the display rules (rates need n>=10, cost per merged PR
-        # needs >=30 merged PRs with a cost; site/app.js MIN_N / MIN_N_COST). The
-        # index must therefore expose the raw counts those rules read.
+        # needs >=30 merged PRs with a cost; site/app.js MIN_N / MIN_N_COST, pinned by
+        # site/app.test.js). The index must therefore expose the raw counts those rules read.
         with tempfile.TemporaryDirectory() as d:
             recs = []
             for i in range(5):  # >= costlib.MEDIAN_MIN_N attributed PRs, merged, $2 each
