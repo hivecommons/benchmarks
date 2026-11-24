@@ -26,6 +26,8 @@ jobs:
       - run: pip install --quiet jsonschema
       - name: Unit tests
         run: python3 -m unittest discover -s scripts -p 'test_*.py'
+      - name: Site unit tests
+        run: node --test site/app.test.js
       - name: Pricing drift check (warn-only)
         continue-on-error: true
         run: python3 scripts/check-pricing-drift.py
@@ -37,6 +39,7 @@ jobs:
         run: |
           mkdir -p _site/data _site/schema
           cp site/* _site/
+          rm -f _site/*.test.js
           cp data/index.json _site/data/
           cp schema/result.schema.json _site/schema/
           touch _site/.nojekyll

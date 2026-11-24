@@ -48,6 +48,8 @@
 
   // ---- aggregation over cells ------------------------------------------
   let WALL_BUCKETS_H = [];
+  // Upper bounds (hours) of the time-to-merge histogram buckets, from data/index.json.
+  function setWallBuckets(b) { WALL_BUCKETS_H = b || []; }
 
   function emptyGroup(key) {
     return { key, variants: new Map(), n: 0, opened: 0, merged: 0, ci_n: 0, ci_green: 0, cost_n: 0, cost_usd: 0, cost_merged: 0, cost_merged_usd: 0,
@@ -445,8 +447,13 @@
   }
 
   // ---- main -------------------------------------------------------------
+  // Under Node (site/app.test.js) expose the pure helpers instead of booting the page.
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = { MIN_N, MIN_N_COST, wilson, aggregate, histMedian, setWallBuckets, rateCell, costCell, applyFilter };
+    return;
+  }
   load().then((index) => {
-    WALL_BUCKETS_H = index.wall_buckets_h || [];
+    setWallBuckets(index.wall_buckets_h);
     const cells = index.cells || [];
     const realCount = index.count - (index.synthetic_count || 0);
     const updated = index.latest_published_at || index.generated_at;
