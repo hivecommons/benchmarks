@@ -8,11 +8,10 @@ on:
     - cron: '17 3 * * *'   # nightly rebuild of data/index.json + redeploy
 permissions:
   contents: read
-  pages: write
-  id-token: write
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  # PR builds get their own group so they never displace a pending deploy.
+  group: ${{ github.event_name == 'pull_request' && format('pages-pr-{0}', github.event.pull_request.number) || 'pages' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -50,6 +49,9 @@ jobs:
     if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
