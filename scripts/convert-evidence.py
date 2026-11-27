@@ -230,7 +230,7 @@ def convert(args):
 
         if author.get("kind") == "agent" and author.get("model"):
             rec = {
-                "schema_version": "1",
+                "schema_version": "2",
                 "id": hashlib.sha256((base_id + "author").encode()).hexdigest()[:24],
                 "published_at": now_iso,
                 "source": source,
@@ -252,7 +252,7 @@ def convert(args):
             if counts:
                 (backend, model), _ = counts.most_common(1)[0]
                 rec = {
-                    "schema_version": "1",
+                    "schema_version": "2",
                     "id": hashlib.sha256((base_id + "reviewer").encode()).hexdigest()[:24],
                     "published_at": now_iso,
                     "source": source,

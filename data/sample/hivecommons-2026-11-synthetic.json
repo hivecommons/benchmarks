@@ -1,12 +1,11 @@
 [
   {
-    "schema_version": "1",
+    "schema_version": "2",
     "id": "synthetic-0001",
     "published_at": "2026-11-11T16:00:00Z",
     "synthetic": true,
     "source": {
       "hive_id": "h-synth-a",
-      "org": "hivecommons",
       "cluster": "kind",
       "hive_version": "v5.0.0-synthetic",
       "exporter": "manual"
@@ -76,7 +75,7 @@
     "notes": "SYNTHETIC sample record. Not a real measurement."
   },
   {
-    "schema_version": "1",
+    "schema_version": "2",
     "id": "synthetic-0002",
     "published_at": "2026-11-11T16:00:00Z",
     "synthetic": true,
@@ -141,13 +140,12 @@
     "notes": "SYNTHETIC sample record. Not a real measurement."
   },
   {
-    "schema_version": "1",
+    "schema_version": "2",
     "id": "synthetic-0003",
     "published_at": "2026-11-11T16:00:00Z",
     "synthetic": true,
     "source": {
       "hive_id": "h-synth-a",
-      "org": "hivecommons",
       "cluster": "kind",
       "hive_version": "v5.0.0-synthetic",
       "exporter": "manual"
