@@ -5,6 +5,8 @@ import tempfile
 import types
 import unittest
 
+from jsonschema import Draft202012Validator, FormatChecker
+
 _spec = importlib.util.spec_from_file_location(
     "convert_evidence", os.path.join(os.path.dirname(__file__), "convert-evidence.py"))
 ce = importlib.util.module_from_spec(_spec)
@@ -189,6 +191,30 @@ class ConvertTest(unittest.TestCase):
         _, a = self.run_convert([bundle()])
         _, b = self.run_convert([bundle()])
         self.assertEqual([r["id"] for r in a], [r["id"] for r in b])
+
+    def test_output_validates_against_result_schema(self):
+        # The converter's records must pass the same schema CI enforces on
+        # data/**, for both private repos (no source.org) and repos listed in
+        # --public-repos (source.org published, so repo_consent must be true).
+        schema_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                   "schema", "result.schema.json")
+        with open(schema_path) as f:
+            validator = Draft202012Validator(json.load(f), format_checker=FormatChecker())
+        vs = [{"verdict": "approve", "model": "gpt-6", "backend": "codex", "confidence": 0.9}]
+        with tempfile.TemporaryDirectory() as d:
+            public = os.path.join(d, "public-repos.txt")
+            with open(public, "w") as f:
+                f.write("acme/widgets\n")
+            for label, over in (("private", {}), ("public", {"public_repos": public})):
+                with self.subTest(repo=label):
+                    rc, recs = self.run_convert([bundle(verdicts=vs)], **over)
+                    self.assertEqual(rc, 0)
+                    self.assertEqual(len(recs), 2)
+                    for rec in recs:
+                        self.assertEqual(rec["schema_version"], "2")
+                        self.assertEqual("org" in rec["source"], label == "public")
+                        errors = [f"{'/'.join(map(str, e.path))}: {e.message}" for e in validator.iter_errors(rec)]
+                        self.assertEqual(errors, [])
 
 
 if __name__ == "__main__":
