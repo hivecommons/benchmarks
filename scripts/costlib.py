@@ -160,6 +160,7 @@ class LaunchCostIndex:
 def fill_fleet_medians(records, pricing=None):
     """Give records whose cost basis is unknown/missing a fleet_model_median
     estimate. Mutates in place; returns {(model, role): {"usd", "n", "how"}}.
+    Only non-synthetic records are samples for the medians.
 
     Two rungs, both reported as basis=fleet_model_median:
       model   >= MEDIAN_MIN_N attributed PRs for the same (model, role):
@@ -174,6 +175,10 @@ def fill_fleet_medians(records, pricing=None):
     for r in records:
         c = r.get("cost") or {}
         usd = c.get("usd_est", c.get("usd"))
+        # Synthetic samples are never mixed into real figures (METHODOLOGY.md),
+        # so they must not move the medians imputed onto real records.
+        if r.get("synthetic"):
+            continue
         if c.get("basis") in ("reported", "tokens_x_pricing") and isinstance(usd, (int, float)) and usd > 0:
             role = (r.get("agent") or {}).get("role", "")
             samples[(normalize_model((r.get("model") or {}).get("name")), role)].append(usd)

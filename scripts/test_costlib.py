@@ -160,6 +160,14 @@ class FillFleetMediansTest(unittest.TestCase):
         recs = [rec(basis="fleet_model_median", usd=9.0) for _ in range(5)] + [rec(basis="unknown")]
         self.assertEqual(fill_fleet_medians(recs, self.p), {})
 
+    def test_synthetic_records_are_not_samples(self):
+        synth = [dict(rec(basis="tokens_x_pricing", usd=9.0, toks=(1_000_000, 0, 0, 0)), synthetic=True) for _ in range(5)]
+        target = rec(basis="unknown")
+        self.assertEqual(fill_fleet_medians(synth + [target], self.p), {})
+        self.assertEqual(target["cost"], {"basis": "unknown"})
+        # synthetic records keep their own attributed cost untouched
+        self.assertEqual(synth[0]["cost"]["usd_est"], 9.0)
+
 
 class LaunchCostIndexTest(unittest.TestCase):
     def _index(self, store):
