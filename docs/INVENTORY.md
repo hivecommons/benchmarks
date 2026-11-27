@@ -61,6 +61,7 @@ exporter (RFC) has to add.
 | `agent.name`, `agent.harness` | `bundle.author.agent`, `bundle.author.backend` |
 | `model.name` | `bundle.author.model` (exact); `model.provider` via `modelfamily` |
 | `task.repo` | `bundle.repo` (consent-gated) |
+| `source.org` | owner segment of `bundle.repo` (only with `task.repo_consent: true`) |
 | `outcome.pr_opened/pr_merged` | `bundle.outcome.state`, `bundle.merge` |
 | `outcome.ci_green_first_try` | first bundle for the PR (`previous_bundle_id == ""`) with `ci.status == success` |
 | `outcome.review_verdict` | worst verdict over `bundle.verdicts[]` on the merged head |
