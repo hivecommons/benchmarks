@@ -16,9 +16,29 @@
     "task",
     "outcome"
   ],
+  "if": {
+    "not": {
+      "properties": {
+        "task": {
+          "properties": {
+            "repo_consent": { "const": true }
+          },
+          "required": ["repo_consent"]
+        }
+      },
+      "required": ["task"]
+    }
+  },
+  "then": {
+    "properties": {
+      "source": {
+        "not": { "required": ["org"] }
+      }
+    }
+  },
   "properties": {
     "schema_version": {
-      "const": "1"
+      "enum": ["1", "2"]
     },
     "id": {
       "type": "string",

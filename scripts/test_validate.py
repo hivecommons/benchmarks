@@ -55,6 +55,26 @@ class ValidateTest(unittest.TestCase):
         self.assertEqual(r.returncode, 1)
         self.assertIn("schema_version", r.stderr)
 
+    def test_org_requires_explicit_repo_consent(self):
+        for version in ("1", "2"):
+            for consent in (False, None, True):
+                with self.subTest(version=version, consent=consent):
+                    rec = self.sample()[0]
+                    rec["schema_version"] = version
+                    rec["source"]["org"] = "example-org"
+                    if consent is None:
+                        rec["task"].pop("repo_consent", None)
+                    else:
+                        rec["task"]["repo_consent"] = consent
+                    result = run([rec])
+                    self.assertEqual(result.returncode, 0 if consent is True else 1, result.stderr)
+
+    def test_anonymous_record_without_org_passes(self):
+        rec = self.sample()[0]
+        rec["task"].pop("repo_consent", None)
+        result = run([rec])
+        self.assertEqual(result.returncode, 0, result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
